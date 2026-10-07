@@ -1,0 +1,7 @@
+{
+  "name": "NIFTY 50 F&O AI Trading Analyst",
+  "description": "Professional NIFTY 50 Futures & Options market analysis, multi-timeframe indicator confluence, option chain intelligence, AI market analysis, and disciplined paper trading.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
