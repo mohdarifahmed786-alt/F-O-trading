@@ -298,42 +298,42 @@ export const StockOptionChainSection: React.FC<StockOptionChainSectionProps> = (
       </div>
 
       {/* 2. OPTION CHAIN SCREEN (MATCHING FLATTRADE / REFERENCE IMAGE LAYOUT) */}
-      <div className="p-4 md:p-6 bg-[#0b0f19] space-y-4">
+      <div className="p-3 sm:p-4 md:p-6 bg-[#0b0f19] space-y-3 sm:space-y-4">
         {/* Header matching image: Arrow, Option Chain, Symbol, NSE, Price, Change */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 border-b border-slate-800/80 pb-3 sm:pb-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={() => setSelectedSymbol('NIFTY 50')}
               title={isNiftySelected ? 'NIFTY 50 Active' : 'Switch back to NIFTY 50'}
-              className="text-slate-400 hover:text-white cursor-pointer text-xl font-bold px-1.5 py-0.5 rounded hover:bg-slate-800"
+              className="text-slate-400 hover:text-white cursor-pointer text-xl font-bold px-1.5 py-0.5 rounded hover:bg-slate-800 shrink-0"
             >
               ‹
             </button>
-            <div>
-              <div className="text-xs text-slate-400 font-sans flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="text-[11px] sm:text-xs text-slate-400 font-sans flex items-center gap-1.5 sm:gap-2">
                 <span>Option Chain</span>
                 {isNiftySelected ? (
-                  <span className="bg-emerald-500/20 text-emerald-400 text-[10px] px-1.5 py-0.2 rounded font-mono font-bold">
+                  <span className="bg-emerald-500/20 text-emerald-400 text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded font-mono font-bold">
                     NSE BENCHMARK INDEX
                   </span>
                 ) : (
-                  <span className="bg-blue-500/20 text-blue-400 text-[10px] px-1.5 py-0.2 rounded font-mono font-bold">
+                  <span className="bg-blue-500/20 text-blue-400 text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded font-mono font-bold">
                     NIFTY 50 STOCK
                   </span>
                 )}
               </div>
-              <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2 truncate">
                 <span>{currentStock.name}</span>
-                <span className="text-slate-400 text-lg font-normal">({currentStock.symbol})</span>
+                <span className="text-slate-400 text-base sm:text-lg font-normal">({currentStock.symbol})</span>
               </h1>
-              <div className="text-[11px] text-slate-400">
-                NSE · LOT SIZE: <strong className="text-slate-200">{currentStock.lotSize}</strong> · STRIKE INTERVAL: <strong className="text-slate-200">{currentStock.strikeStep} pts</strong>
+              <div className="text-[10px] sm:text-[11px] text-slate-400">
+                NSE · LOT: <strong className="text-slate-200">{currentStock.lotSize}</strong> · STEP: <strong className="text-slate-200">{currentStock.strikeStep} pts</strong>
               </div>
             </div>
           </div>
 
-          <div className="text-right">
-            <div className={`text-2xl font-bold font-mono tabular-nums flex items-center justify-end gap-1.5 ${isPos ? 'text-emerald-400' : 'text-rose-400'}`}>
+          <div className="text-left sm:text-right w-full sm:w-auto">
+            <div className={`text-xl sm:text-2xl font-bold font-mono tabular-nums flex items-center sm:justify-end gap-1.5 ${isPos ? 'text-emerald-400' : 'text-rose-400'}`}>
               <span>{isPos ? '▲' : '▼'}</span>
               <span>₹{currentStock.currentPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
@@ -345,12 +345,12 @@ export const StockOptionChainSection: React.FC<StockOptionChainSectionProps> = (
 
         {/* Expiry Selector Row */}
         <div className="flex items-center justify-between py-1 border-b border-slate-800/60 text-xs">
-          <span className="text-slate-400 font-sans font-medium text-sm">Expiry</span>
+          <span className="text-slate-400 font-sans font-medium text-xs sm:text-sm">Expiry</span>
           <div className="relative">
             <select
               value={selectedExpiry}
               onChange={(e) => setSelectedExpiry(e.target.value)}
-              className="bg-transparent text-white font-mono font-semibold pr-6 py-1 appearance-none cursor-pointer focus:outline-none"
+              className="bg-transparent text-white font-mono font-semibold pr-6 py-1 appearance-none cursor-pointer focus:outline-none text-xs sm:text-sm"
             >
               {optionChain.availableExpiries.map((exp) => (
                 <option key={exp} value={exp} className="bg-slate-900 text-white">
@@ -372,26 +372,26 @@ export const StockOptionChainSection: React.FC<StockOptionChainSectionProps> = (
           const targetPremium = isCall ? (atmRow?.call.ltp || 25) : isPut ? (atmRow?.put.ltp || 25) : 25;
 
           return (
-            <div className={`p-4 rounded-xl border flex flex-wrap items-center justify-between gap-4 font-mono shadow-md ${
+            <div className={`p-3.5 sm:p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 font-mono shadow-md ${
               isCall ? 'bg-emerald-950/30 border-emerald-500/40' : isPut ? 'bg-rose-950/30 border-rose-500/40' : 'bg-slate-900 border-slate-800'
             }`}>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase ${
+              <div className="space-y-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <span className={`text-[11px] sm:text-xs font-bold px-2 py-0.5 rounded uppercase ${
                     isCall ? 'bg-emerald-500/20 text-emerald-300' : isPut ? 'bg-rose-500/20 text-rose-300' : 'bg-amber-500/20 text-amber-300'
                   }`}>
                     {isCall ? '👉 🟢 CALL BUY (BUY CE)' : isPut ? '👉 🔴 PUT BUY (BUY PE)' : '👉 🟡 WAIT / RANGE'}
                   </span>
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[10px] sm:text-[11px] text-slate-400">
                     Confidence: <strong className="text-white">{currentStock.confidence || 80}%</strong>
                   </span>
                   {!isNiftySelected && (
-                    <span className="text-[11px] text-slate-400">
-                      · Nifty Weight: <strong className="text-slate-200">{currentStock.weightage}%</strong>
+                    <span className="text-[10px] sm:text-[11px] text-slate-400">
+                      · Weight: <strong className="text-slate-200">{currentStock.weightage}%</strong>
                     </span>
                   )}
                 </div>
-                <div className="text-sm font-bold text-white flex flex-wrap items-center gap-2 sm:gap-3">
+                <div className="text-xs sm:text-sm font-bold text-white flex flex-wrap items-center gap-1.5 sm:gap-3">
                   <span>Contract: <strong className="text-amber-300">{targetContract}</strong></span>
                   <span className="text-slate-400">·</span>
                   <span>Est Premium: <strong className="text-emerald-400">₹{targetPremium.toFixed(2)}</strong></span>
@@ -406,9 +406,9 @@ export const StockOptionChainSection: React.FC<StockOptionChainSectionProps> = (
                     handleOpenTrade(atmRow, isCall ? 'CE' : 'PE', 'BUY');
                   }
                 }}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shrink-0"
               >
-                <Zap className="w-4 h-4 text-amber-300" />
+                <Zap className="w-4 h-4 text-amber-300 shrink-0" />
                 <span>Practice {isCall ? 'Call Buy' : isPut ? 'Put Buy' : 'Trade'} in Simulator</span>
               </button>
             </div>
@@ -416,64 +416,57 @@ export const StockOptionChainSection: React.FC<StockOptionChainSectionProps> = (
         })()}
 
         {/* NSE Live Pricing & DTE Calibration Ribbon */}
-        <div className="bg-slate-950/80 border border-emerald-500/30 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+        <div className="bg-slate-950/80 border border-emerald-500/30 rounded-xl p-2.5 sm:p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
             <span className="font-bold text-white text-[11px]">NSE Pricing Engine:</span>
-            <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] px-2 py-0.5 rounded font-mono font-semibold">
-              ✓ Put-Call Parity & Intrinsic Floor Verified
+            <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] px-1.5 sm:px-2 py-0.5 rounded font-mono font-semibold">
+              ✓ Parity Verified
             </span>
           </div>
 
-          {/* DTE Selector */}
-          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
-            <span className="text-slate-400 text-[10px] pl-1 font-sans">CALIBRATE DTE:</span>
-            {(['0dte', '1dte', 'weekly', 'monthly'] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setDteMode(mode)}
-                className={`px-2.5 py-0.5 rounded text-[11px] font-bold cursor-pointer transition-all ${
-                  dteMode === mode
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-                title={
-                  mode === '0dte'
-                    ? 'Today Expiry (0 DTE) - Matches Live NSE Expiry Day'
-                    : mode === '1dte'
-                    ? '1 Day to Expiry (Tomorrow)'
-                    : mode === 'weekly'
-                    ? 'Weekly Thursday Expiry (~5 DTE)'
-                    : 'Monthly Expiry (~26 DTE)'
-                }
-              >
-                {mode === '0dte' ? '0 DTE (Today)' : mode === '1dte' ? '1 DTE' : mode === 'weekly' ? 'Weekly (5D)' : 'Monthly'}
-              </button>
-            ))}
-          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* DTE Selector */}
+            <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 overflow-x-auto scrollbar-none">
+              <span className="text-slate-400 text-[10px] pl-1 font-sans hidden xs:inline">DTE:</span>
+              {(['0dte', '1dte', 'weekly', 'monthly'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setDteMode(mode)}
+                  className={`px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-bold cursor-pointer transition-all ${
+                    dteMode === mode
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {mode === '0dte' ? '0 DTE' : mode === '1dte' ? '1 DTE' : mode === 'weekly' ? 'Weekly' : 'Monthly'}
+                </button>
+              ))}
+            </div>
 
-          {/* Verify Math CTA */}
-          <button
-            onClick={() => setShowNseProofModal(true)}
-            className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-[11px] font-bold flex items-center gap-1.5 cursor-pointer transition-all"
-          >
-            <Calculator className="w-3.5 h-3.5 text-amber-400" />
-            <span>Verify NSE Formula & Parity</span>
-          </button>
+            {/* Verify Math CTA */}
+            <button
+              onClick={() => setShowNseProofModal(true)}
+              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-[10px] sm:text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all"
+            >
+              <Calculator className="w-3.5 h-3.5 text-amber-400" />
+              <span>Verify Formula</span>
+            </button>
+          </div>
         </div>
 
         {/* Subheader with strike selector in the middle: CALL | (5) (10) (15) | PUT */}
-        <div className="grid grid-cols-3 items-center py-2.5 text-xs font-bold border-b border-slate-800">
-          <div className="text-left text-slate-300 tracking-wider">
-            CALL
+        <div className="grid grid-cols-3 items-center py-2 text-xs font-bold border-b border-slate-800">
+          <div className="text-left text-slate-300 tracking-wider text-[11px] sm:text-xs">
+            CALL (CE)
           </div>
 
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2">
             {[5, 10, 15].map((cnt) => (
               <button
                 key={cnt}
                 onClick={() => setStrikeCount(cnt as 5 | 10 | 15)}
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
+                className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${
                   strikeCount === cnt
                     ? 'bg-blue-600 text-white shadow-md'
                     : 'bg-transparent text-slate-400 border border-slate-700 hover:text-white'
@@ -484,159 +477,159 @@ export const StockOptionChainSection: React.FC<StockOptionChainSectionProps> = (
             ))}
           </div>
 
-          <div className="text-right text-slate-300 tracking-wider">
-            PUT
+          <div className="text-right text-slate-300 tracking-wider text-[11px] sm:text-xs">
+            PUT (PE)
           </div>
         </div>
 
-        {/* Column Headers: OI (Lk) | LTP | Strike ⇅ | LTP | OI (Lk) */}
-        <div className="grid grid-cols-5 items-center py-2 text-[11px] font-bold text-slate-400 border-b border-slate-800">
-          <div className="text-left text-sky-400">
-            OI (Lk)
-          </div>
-          <div className="text-right text-slate-300 pr-4">
-            LTP
-          </div>
-          <div className="text-center text-slate-300 flex items-center justify-center gap-1">
-            <span>Strike</span>
-            <ArrowUpDown className="w-3 h-3 text-slate-500" />
-          </div>
-          <div className="text-left text-slate-300 pl-4">
-            LTP
-          </div>
-          <div className="text-right text-sky-400">
-            OI (Lk)
-          </div>
-        </div>
+        {/* Column Headers & Option Chain Rows Container with horizontal scroll safety */}
+        <div className="overflow-x-auto -mx-1 px-1 scrollbar-none">
+          <div className="min-w-[340px] sm:min-w-full">
+            {/* Column Headers: OI (Lk) | LTP | Strike ⇅ | LTP | OI (Lk) */}
+            <div className="grid grid-cols-5 items-center py-2 text-[10px] sm:text-[11px] font-bold text-slate-400 border-b border-slate-800">
+              <div className="text-left text-sky-400 pl-1">
+                OI (Lk)
+              </div>
+              <div className="text-right text-slate-300 pr-1.5 sm:pr-4">
+                LTP
+              </div>
+              <div className="text-center text-slate-300 flex items-center justify-center gap-0.5 sm:gap-1">
+                <span>Strike</span>
+                <ArrowUpDown className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-slate-500" />
+              </div>
+              <div className="text-left text-slate-300 pl-1.5 sm:pl-4">
+                LTP
+              </div>
+              <div className="text-right text-sky-400 pr-1">
+                OI (Lk)
+              </div>
+            </div>
 
-        {/* 3. OPTION CHAIN STRIKES LIST */}
-        <div className="space-y-1 overflow-y-auto max-h-[580px] pr-1">
-          {optionChain.strikes.map((row, idx) => {
-            const isAtm = row.isAtm;
-            const callOiLakhs = (row.call.oi / 100000).toFixed(2);
-            const putOiLakhs = (row.put.oi / 100000).toFixed(2);
+            {/* 3. OPTION CHAIN STRIKES LIST */}
+            <div className="space-y-1 overflow-y-auto max-h-[580px] pr-1">
+              {optionChain.strikes.map((row, idx) => {
+                const isAtm = row.isAtm;
+                const callOiLakhs = (row.call.oi / 100000).toFixed(2);
+                const putOiLakhs = (row.put.oi / 100000).toFixed(2);
 
-            const isCallSelected = activeContract?.row.strikePrice === row.strikePrice && activeContract.optionType === 'CE';
-            const isPutSelected = activeContract?.row.strikePrice === row.strikePrice && activeContract.optionType === 'PE';
+                const isCallSelected = activeContract?.row.strikePrice === row.strikePrice && activeContract.optionType === 'CE';
+                const isPutSelected = activeContract?.row.strikePrice === row.strikePrice && activeContract.optionType === 'PE';
 
-            // Shading: Call ITM when strike < spot; Put ITM when strike > spot
-            const isCallItm = row.strikePrice < spotPrice;
-            const isPutItm = row.strikePrice > spotPrice;
+                // Shading: Call ITM when strike < spot; Put ITM when strike > spot
+                const isCallItm = row.strikePrice < spotPrice;
+                const isPutItm = row.strikePrice > spotPrice;
 
-            return (
-              <React.Fragment key={row.strikePrice}>
-                {/* Individual Strike Row */}
-                <div
-                  className={`grid grid-cols-5 items-center py-2 px-1 rounded-lg transition-colors hover:bg-slate-900/80 ${
-                    isAtm ? 'bg-amber-500/10 border-y border-amber-500/30' : ''
-                  }`}
-                >
-                  {/* CALL OI (Lk) */}
-                  <div
-                    onClick={() => handleOpenTrade(row, 'CE', 'BUY')}
-                    className={`text-left tabular-nums cursor-pointer select-none py-1 px-1 rounded ${
-                      isCallItm ? 'bg-emerald-500/5 text-emerald-300 font-medium' : 'text-slate-400'
-                    }`}
-                    title="Click to trade Call"
-                  >
-                    <span className="text-xs">{callOiLakhs}</span>
-                  </div>
-
-                  {/* CALL LTP + Change % + Intrinsic breakdown */}
-                  <div
-                    onClick={() => handleOpenTrade(row, 'CE', 'BUY')}
-                    className={`text-right pr-4 cursor-pointer select-none transition-all py-1 ${
-                      isCallItm ? 'bg-emerald-500/5' : ''
-                    } ${isCallSelected ? 'ring-1 ring-emerald-500 rounded px-1.5' : ''}`}
-                    title={`Call LTP: ₹${row.call.ltp} | Intrinsic: ₹${row.call.intrinsicValue ?? 0} | Extrinsic Time Value: ₹${row.call.timeValue ?? 0} | IV: ${row.call.iv}%`}
-                  >
-                    <div className={`font-semibold text-xs tabular-nums ${isCallItm ? 'text-emerald-300 font-bold' : 'text-white'}`}>
-                      ₹{row.call.ltp.toFixed(2)}
-                    </div>
-                    <div className="flex items-center justify-end gap-1.5 text-[9px] text-slate-400">
-                      <span className={`tabular-nums font-semibold ${row.call.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {row.call.change >= 0 ? '+' : ''}{row.call.change.toFixed(2)}
-                      </span>
-                      {row.call.intrinsicValue != null && row.call.intrinsicValue > 0 && (
-                        <span className="text-[8px] bg-emerald-500/10 text-emerald-400 px-1 rounded font-mono">
-                          In: ₹{row.call.intrinsicValue.toFixed(1)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* CENTER STRIKE PILL BUTTON WITH 99% IQ BADGE */}
-                  <div className="text-center flex flex-col items-center justify-center">
-                    <button
-                      onClick={() => handleOpenTrade(row, 'CE', 'BUY')}
-                      className={`px-3.5 py-1 rounded-lg border font-bold text-xs tracking-tight shadow-sm transition-all cursor-pointer tabular-nums relative ${
-                        isAtm
-                          ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-md ring-1 ring-amber-400/40'
-                          : 'bg-slate-900/90 border-slate-700/80 text-slate-200 hover:border-slate-500 hover:bg-slate-800'
+                return (
+                  <React.Fragment key={row.strikePrice}>
+                    {/* Individual Strike Row */}
+                    <div
+                      className={`grid grid-cols-5 items-center py-1.5 sm:py-2 px-1 rounded-lg transition-colors hover:bg-slate-900/80 ${
+                        isAtm ? 'bg-amber-500/10 border-y border-amber-500/30' : ''
                       }`}
                     >
-                      <span>{row.strikePrice % 1 === 0 ? row.strikePrice : row.strikePrice.toFixed(1)}</span>
-                      {isAtm && (
-                        <span className="ml-1 text-[8px] uppercase tracking-wider bg-amber-500/30 text-amber-300 px-1 py-0.2 rounded font-sans">
-                          ATM
+                      {/* CALL OI (Lk) */}
+                      <div
+                        onClick={() => handleOpenTrade(row, 'CE', 'BUY')}
+                        className={`text-left tabular-nums cursor-pointer select-none py-1 px-1 rounded ${
+                          isCallItm ? 'bg-emerald-500/5 text-emerald-300 font-medium' : 'text-slate-400'
+                        }`}
+                        title="Click to trade Call"
+                      >
+                        <span className="text-[11px] sm:text-xs">{callOiLakhs}</span>
+                      </div>
+
+                      {/* CALL LTP + Change % */}
+                      <div
+                        onClick={() => handleOpenTrade(row, 'CE', 'BUY')}
+                        className={`text-right pr-1.5 sm:pr-4 cursor-pointer select-none transition-all py-1 ${
+                          isCallItm ? 'bg-emerald-500/5' : ''
+                        } ${isCallSelected ? 'ring-1 ring-emerald-500 rounded px-1.5' : ''}`}
+                        title={`Call LTP: ₹${row.call.ltp} | Intrinsic: ₹${row.call.intrinsicValue ?? 0} | Extrinsic: ₹${row.call.timeValue ?? 0} | IV: ${row.call.iv}%`}
+                      >
+                        <div className={`font-semibold text-[11px] sm:text-xs tabular-nums ${isCallItm ? 'text-emerald-300 font-bold' : 'text-white'}`}>
+                          ₹{row.call.ltp.toFixed(2)}
+                        </div>
+                        <div className="flex items-center justify-end gap-1 text-[8px] sm:text-[9px] text-slate-400">
+                          <span className={`tabular-nums font-semibold ${row.call.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {row.call.change >= 0 ? '+' : ''}{row.call.change.toFixed(2)}
+                          </span>
+                          {row.call.intrinsicValue != null && row.call.intrinsicValue > 0 && (
+                            <span className="hidden sm:inline text-[8px] bg-emerald-500/10 text-emerald-400 px-1 rounded font-mono">
+                              In: ₹{row.call.intrinsicValue.toFixed(1)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* CENTER STRIKE PILL BUTTON */}
+                      <div className="text-center flex flex-col items-center justify-center">
+                        <button
+                          onClick={() => handleOpenTrade(row, 'CE', 'BUY')}
+                          className={`px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-md sm:rounded-lg border font-bold text-[10px] sm:text-xs tracking-tight shadow-sm transition-all cursor-pointer tabular-nums relative ${
+                            isAtm
+                              ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-md ring-1 ring-amber-400/40'
+                              : 'bg-slate-900/90 border-slate-700/80 text-slate-200 hover:border-slate-500 hover:bg-slate-800'
+                          }`}
+                        >
+                          <span>{row.strikePrice % 1 === 0 ? row.strikePrice : row.strikePrice.toFixed(1)}</span>
+                          {isAtm && (
+                            <span className="ml-1 text-[7px] sm:text-[8px] uppercase tracking-wider bg-amber-500/30 text-amber-300 px-1 py-0.2 rounded font-sans">
+                              ATM
+                            </span>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* PUT LTP + Change % */}
+                      <div
+                        onClick={() => handleOpenTrade(row, 'PE', 'BUY')}
+                        className={`text-left pl-1.5 sm:pl-4 cursor-pointer select-none transition-all py-1 ${
+                          isPutItm ? 'bg-rose-500/5' : ''
+                        } ${isPutSelected ? 'ring-1 ring-rose-500 rounded px-1.5' : ''}`}
+                        title={`Put LTP: ₹${row.put.ltp} | Intrinsic: ₹${row.put.intrinsicValue ?? 0} | Extrinsic: ₹${row.put.timeValue ?? 0} | IV: ${row.put.iv}%`}
+                      >
+                        <div className={`font-semibold text-[11px] sm:text-xs tabular-nums ${isPutItm ? 'text-rose-300 font-bold' : 'text-white'}`}>
+                          ₹{row.put.ltp.toFixed(2)}
+                        </div>
+                        <div className="flex items-center gap-1 text-[8px] sm:text-[9px] text-slate-400">
+                          <span className={`tabular-nums font-semibold ${row.put.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {row.put.change >= 0 ? '+' : ''}{row.put.change.toFixed(2)}
+                          </span>
+                          {row.put.intrinsicValue != null && row.put.intrinsicValue > 0 && (
+                            <span className="hidden sm:inline text-[8px] bg-rose-500/10 text-rose-400 px-1 rounded font-mono">
+                              In: ₹{row.put.intrinsicValue.toFixed(1)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* PUT OI (Lk) */}
+                      <div
+                        onClick={() => handleOpenTrade(row, 'PE', 'BUY')}
+                        className={`text-right tabular-nums cursor-pointer select-none py-1 px-1 rounded ${
+                          isPutItm ? 'bg-rose-500/5 text-rose-300 font-medium' : 'text-slate-400'
+                        }`}
+                        title="Click to trade Put"
+                      >
+                        <span className="text-[11px] sm:text-xs">{putOiLakhs}</span>
+                      </div>
+                    </div>
+
+                    {/* EXACT CASH LTP / SPOT PRICE HORIZONTAL LINE */}
+                    {idx === insertCashLtpIndex && (
+                      <div className="my-1.5 py-1 sm:py-1.5 px-2 sm:px-3 bg-slate-800/90 border-y border-slate-700 flex items-center justify-between text-[11px] sm:text-xs font-bold text-slate-200 rounded">
+                        <span className="text-[10px] sm:text-[11px] text-slate-400 font-sans tracking-wide">Cash LTP</span>
+                        <span className="text-xs sm:text-sm font-mono text-emerald-400 tabular-nums">
+                          ₹{spotPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
-                      )}
-                    </button>
-                    {isAtm && isNiftySelected && (
-                      <span className="text-[8px] text-violet-400 font-bold flex items-center gap-0.5 mt-0.5 animate-pulse">
-                        <Brain className="w-2.5 h-2.5" /> 99% IQ BEST
-                      </span>
+                        <span className="text-[10px] sm:text-[11px] text-slate-400 font-sans tracking-wide">Cash LTP</span>
+                      </div>
                     )}
-                  </div>
-
-                  {/* PUT LTP + Change % + Intrinsic breakdown */}
-                  <div
-                    onClick={() => handleOpenTrade(row, 'PE', 'BUY')}
-                    className={`text-left pl-4 cursor-pointer select-none transition-all py-1 ${
-                      isPutItm ? 'bg-rose-500/5' : ''
-                    } ${isPutSelected ? 'ring-1 ring-rose-500 rounded px-1.5' : ''}`}
-                    title={`Put LTP: ₹${row.put.ltp} | Intrinsic: ₹${row.put.intrinsicValue ?? 0} | Extrinsic Time Value: ₹${row.put.timeValue ?? 0} | IV: ${row.put.iv}%`}
-                  >
-                    <div className={`font-semibold text-xs tabular-nums ${isPutItm ? 'text-rose-300 font-bold' : 'text-white'}`}>
-                      ₹{row.put.ltp.toFixed(2)}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[9px] text-slate-400">
-                      <span className={`tabular-nums font-semibold ${row.put.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {row.put.change >= 0 ? '+' : ''}{row.put.change.toFixed(2)}
-                      </span>
-                      {row.put.intrinsicValue != null && row.put.intrinsicValue > 0 && (
-                        <span className="text-[8px] bg-rose-500/10 text-rose-400 px-1 rounded font-mono">
-                          In: ₹{row.put.intrinsicValue.toFixed(1)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* PUT OI (Lk) */}
-                  <div
-                    onClick={() => handleOpenTrade(row, 'PE', 'BUY')}
-                    className={`text-right tabular-nums cursor-pointer select-none py-1 px-1 rounded ${
-                      isPutItm ? 'bg-rose-500/5 text-rose-300 font-medium' : 'text-slate-400'
-                    }`}
-                    title="Click to trade Put"
-                  >
-                    <span className="text-xs">{putOiLakhs}</span>
-                  </div>
-                </div>
-
-                {/* EXACT CASH LTP / SPOT PRICE HORIZONTAL LINE (Reference image layout) */}
-                {idx === insertCashLtpIndex && (
-                  <div className="my-1.5 py-1.5 px-3 bg-slate-800/90 border-y border-slate-700 flex items-center justify-between text-xs font-bold text-slate-200 rounded">
-                    <span className="text-[11px] text-slate-400 font-sans tracking-wide">Cash LTP</span>
-                    <span className="text-sm font-mono text-emerald-400 tabular-nums">
-                      ₹{spotPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                    <span className="text-[11px] text-slate-400 font-sans tracking-wide">Cash LTP</span>
-                  </div>
-                )}
-              </React.Fragment>
-            );
-          })}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 

@@ -12,7 +12,7 @@ export const Footer: React.FC = () => {
           </p>
         </div>
 
-        <div className="text-right text-[11px] text-slate-500 shrink-0">
+        <div className="text-center md:text-right text-[11px] text-slate-500 w-full md:w-auto shrink-0">
           <div>NIFTY 50 F&O Quantitative Analytics</div>
           <div className="text-slate-600">SEBI Reg. Reference / Educational Sandbox</div>
         </div>

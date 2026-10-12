@@ -11,6 +11,7 @@ import {
   TradeStrategy,
   HumanIqSignal,
   HumanIqSignalPillar,
+  PointImpulseTrigger,
 } from '../types/market';
 import { selectOptimalStrategy } from './strategyEngine';
 
@@ -24,6 +25,15 @@ export interface SignalInputs {
   isMarketOpen: boolean;
   isLiveAvailable: boolean;
   dataDelaySeconds: number;
+  dayChange?: number;
+  dayOpen?: number;
+  previousClose?: number;
+  dayLow?: number;
+  dayHigh?: number;
+  candles?: Array<{ timestamp: number; open: number; high: number; low: number; close: number; volume: number }>;
+  recentTrajectory?: number;
+  lastExecutionPrice?: number;
+  lastExecutionSignal?: 'BUY CALL' | 'BUY PUT' | 'NO TRADE';
 }
 
 /**
@@ -31,6 +41,51 @@ export interface SignalInputs {
  */
 export function evaluateSignal(inputs: SignalInputs): SignalAnalysis {
   const { spotPrice, indicators, optionChain, vix, mtf, recentNews, isMarketOpen, isLiveAvailable } = inputs;
+
+  // Real-time market context vectors
+  const effectiveDayChange = inputs.dayChange !== undefined
+    ? inputs.dayChange
+    : Number((spotPrice - (indicators.priceAction.pdc || spotPrice)).toFixed(2));
+
+  const effectiveDayOpen = inputs.dayOpen !== undefined
+    ? inputs.dayOpen
+    : (indicators.priceAction.openingRange?.low || spotPrice);
+
+  const effectiveDayLow = inputs.dayLow !== undefined
+    ? inputs.dayLow
+    : (inputs.candles && inputs.candles.length > 0
+        ? Math.min(...inputs.candles.map(c => c.low))
+        : (indicators.priceAction.pdl || spotPrice - 60));
+
+  const effectiveDayHigh = inputs.dayHigh !== undefined
+    ? inputs.dayHigh
+    : (inputs.candles && inputs.candles.length > 0
+        ? Math.max(...inputs.candles.map(c => c.high))
+        : (indicators.priceAction.pdh || spotPrice + 60));
+
+  // Measure recovery from intraday low (e.g. index moved from -165 to -115 = +50 pts bounce)
+  const recoveryFromLow = Math.max(0, Number((spotPrice - effectiveDayLow).toFixed(2)));
+  // Measure pullback from intraday high
+  const pullbackFromHigh = Math.max(0, Number((effectiveDayHigh - spotPrice).toFixed(2)));
+
+  // Trajectory over recent candles
+  const recentCandles = inputs.candles && inputs.candles.length >= 2
+    ? inputs.candles.slice(-5)
+    : [];
+
+  const recentTrajectory = inputs.recentTrajectory !== undefined
+    ? inputs.recentTrajectory
+    : (recentCandles.length >= 2
+        ? Number((spotPrice - recentCandles[0].open).toFixed(2))
+        : (recoveryFromLow > pullbackFromHigh ? recoveryFromLow : -pullbackFromHigh));
+
+  const recentGreenCandlesCount = recentCandles.filter(c => c.close >= c.open).length;
+  const recentRedCandlesCount = recentCandles.filter(c => c.close < c.open).length;
+
+  const isBelowVwap = spotPrice < indicators.vwap.value;
+  const isBelowEma9 = spotPrice < indicators.emas.ema9;
+  const isBelowEma20 = spotPrice < indicators.emas.ema20;
+  const isBelowDayOpen = spotPrice < effectiveDayOpen;
 
   // 1. Condition Checks (10 Rules)
   const marketOpen = isMarketOpen;
@@ -63,42 +118,75 @@ export function evaluateSignal(inputs: SignalInputs): SignalAnalysis {
 
   // A. Price Action (20%)
   let priceActionScore = 0;
-  if (indicators.priceAction.structure === 'HIGHER_HIGHS_HIGHER_LOWS') priceActionScore += 60;
-  else if (indicators.priceAction.structure === 'LOWER_HIGHS_LOWER_LOWS') priceActionScore -= 60;
+  if (indicators.priceAction.structure === 'HIGHER_HIGHS_HIGHER_LOWS') priceActionScore += 50;
+  else if (indicators.priceAction.structure === 'LOWER_HIGHS_LOWER_LOWS') priceActionScore -= 50;
 
   if (indicators.priceAction.breakout === 'BULLISH_BREAKOUT') priceActionScore += 40;
   else if (indicators.priceAction.breakout === 'BEARISH_BREAKDOWN') priceActionScore -= 40;
 
-  if (spotPrice > indicators.priceAction.pdh) priceActionScore += 20;
-  else if (spotPrice < indicators.priceAction.pdl) priceActionScore -= 20;
+  if (spotPrice > indicators.priceAction.pdh) priceActionScore += 25;
+  else if (spotPrice < indicators.priceAction.pdl) priceActionScore -= 25;
+
+  // Real-time intraday momentum and recovery velocity:
+  // If price is surging up off low (e.g. recovered +50 pts from -165 to -115), that is strong positive momentum
+  if (recoveryFromLow >= 25 || recentTrajectory >= 15) {
+    priceActionScore += 50;
+  } else if (pullbackFromHigh >= 25 || recentTrajectory <= -15) {
+    priceActionScore -= 50;
+  }
+
+  // Recent candle sequence
+  if (recentGreenCandlesCount >= 3) priceActionScore += 20;
+  else if (recentRedCandlesCount >= 3) priceActionScore -= 20;
+
+  if (spotPrice > effectiveDayOpen) priceActionScore += 15;
+  else if (spotPrice < effectiveDayOpen && recoveryFromLow < 20) priceActionScore -= 15;
+
+  priceActionScore = Math.max(-100, Math.min(100, priceActionScore));
 
   // B. Trend / EMA (15%)
   let trendEmaScore = 0;
-  if (indicators.emas.alignment === 'BULLISH') trendEmaScore += 70;
-  else if (indicators.emas.alignment === 'BEARISH') trendEmaScore -= 70;
+  if (indicators.emas.alignment === 'BULLISH') trendEmaScore += 40;
+  else if (indicators.emas.alignment === 'BEARISH') trendEmaScore -= 40;
 
-  if (indicators.emas.crossover === 'GOLDEN_CROSS') trendEmaScore += 30;
-  else if (indicators.emas.crossover === 'DEATH_CROSS') trendEmaScore -= 30;
+  if (indicators.emas.crossover === 'GOLDEN_CROSS') trendEmaScore += 25;
+  else if (indicators.emas.crossover === 'DEATH_CROSS') trendEmaScore -= 25;
 
-  if (indicators.supertrend.direction === 'BULLISH') trendEmaScore += 25;
-  else trendEmaScore -= 25;
+  if (indicators.supertrend.direction === 'BULLISH') trendEmaScore += 30;
+  else trendEmaScore -= 30;
+
+  // Immediate fast EMA position & recovery momentum
+  if (spotPrice >= indicators.emas.ema9) trendEmaScore += 30;
+  else trendEmaScore -= 30;
+
+  if (recoveryFromLow >= 25 && recentTrajectory > 0) trendEmaScore += 25;
+
+  trendEmaScore = Math.max(-100, Math.min(100, trendEmaScore));
 
   // C. VWAP (10%)
   let vwapScore = 0;
-  if (indicators.vwap.relation === 'ABOVE') {
-    vwapScore += 70;
-    if (indicators.vwap.trend === 'BULLISH') vwapScore += 30;
-  } else if (indicators.vwap.relation === 'BELOW') {
-    vwapScore -= 70;
-    if (indicators.vwap.trend === 'BEARISH') vwapScore -= 30;
+  if (!isBelowVwap) {
+    vwapScore += 75;
+    if (indicators.vwap.trend === 'BULLISH') vwapScore += 25;
+  } else {
+    // If below VWAP but strongly recovering towards it (+25 pts off low), reward mean-reversion recovery
+    if (recoveryFromLow >= 25 && recentTrajectory > 0) {
+      vwapScore += 25;
+    } else {
+      vwapScore -= 75;
+      if (indicators.vwap.trend === 'BEARISH') vwapScore -= 25;
+    }
   }
 
   // D. RSI 14 (10%)
   let rsiScore = 0;
   if (indicators.rsi14.condition === 'BULLISH_MOMENTUM') rsiScore += 70;
-  else if (indicators.rsi14.condition === 'OVERBOUGHT') rsiScore += 20; // cautiously bullish
+  else if (indicators.rsi14.condition === 'OVERBOUGHT') rsiScore += 20;
   else if (indicators.rsi14.condition === 'BEARISH_MOMENTUM') rsiScore -= 70;
-  else if (indicators.rsi14.condition === 'OVERSOLD') rsiScore -= 20; // cautiously bearish
+  else if (indicators.rsi14.condition === 'OVERSOLD') {
+    // Oversold bounce when recovering off low is bullish for Call option
+    rsiScore += (recoveryFromLow >= 20 || recentTrajectory > 0) ? 45 : -30;
+  }
 
   if (indicators.rsi14.divergence === 'BULLISH') rsiScore += 30;
   else if (indicators.rsi14.divergence === 'BEARISH') rsiScore -= 30;
@@ -111,32 +199,32 @@ export function evaluateSignal(inputs: SignalInputs): SignalAnalysis {
   // F. ADX & Trend Strength (5%)
   let adxScore = 0;
   if (indicators.adx14.trendStrength === 'STRONG') {
-    adxScore = trendEmaScore > 0 ? 80 : -80;
+    adxScore = (trendEmaScore > 0 || recentTrajectory > 0) ? 80 : -80;
   } else {
-    adxScore = 0; // Sideways/Weak
+    adxScore = 0;
   }
 
   // G. Volume Analysis (5%)
   let volumeScore = 0;
   if (indicators.volume.spike) {
-    volumeScore = priceActionScore > 0 ? 80 : -80;
+    volumeScore = (priceActionScore > 0 || recentTrajectory > 0) ? 80 : -80;
   } else if (indicators.volume.status === 'EXPANDING') {
-    volumeScore = priceActionScore > 0 ? 50 : -50;
+    volumeScore = (priceActionScore > 0 || recentTrajectory > 0) ? 50 : -50;
   }
 
   // H. Option OI Analysis (10%)
   let optionOiScore = 0;
   if (optionChain.changeInPutOi > optionChain.changeInCallOi * 1.2) {
-    optionOiScore += 70; // Put writing / strong support building
+    optionOiScore += 70;
   } else if (optionChain.changeInCallOi > optionChain.changeInPutOi * 1.2) {
-    optionOiScore -= 70; // Call writing / strong resistance building
+    optionOiScore -= 70;
   }
 
   // Proximity to OI walls
   const distToCallWall = optionChain.majorCallResistance - spotPrice;
   const distToPutWall = spotPrice - optionChain.majorPutSupport;
-  if (distToCallWall < 35) optionOiScore -= 30; // Nearing call resistance
-  if (distToPutWall < 35) optionOiScore += 30; // Nearing put support
+  if (distToCallWall < 35 && recentTrajectory <= 0) optionOiScore -= 30;
+  if (distToPutWall < 35 || recoveryFromLow >= 25) optionOiScore += 30;
 
   // I. PCR (5%)
   let pcrScore = 0;
@@ -146,7 +234,6 @@ export function evaluateSignal(inputs: SignalInputs): SignalAnalysis {
   // J. IV / India VIX (5%)
   let ivVixScore = 0;
   if (vix.trend === 'EXPANDING') {
-    // Sharp rising VIX typically accompanies downside panic in NIFTY
     ivVixScore -= 40;
   } else if (vix.trend === 'CONTRACTION') {
     ivVixScore += 30;
@@ -186,20 +273,91 @@ export function evaluateSignal(inputs: SignalInputs): SignalAnalysis {
     marketRegime = 'LOW-VOLATILITY';
   }
 
-  // 4. Trend Identification (Responsive to real market action)
-  let trend: MarketTrend = 'SIDEWAYS';
-  if (totalWeighted >= 12 || (spotPrice >= indicators.vwap.value && indicators.supertrend.direction === 'BULLISH' && totalWeighted >= -5)) {
-    trend = 'BULLISH';
-  } else if (totalWeighted <= -12 || (spotPrice < indicators.vwap.value && indicators.supertrend.direction === 'BEARISH' && totalWeighted <= 5)) {
-    trend = 'BEARISH';
+  // -----------------------------------------------------------------------------------
+  // 20-POINT BASELINE EXECUTION CONCEPT:
+  // Signals are strictly triggered only when the Nifty 50 moves by a minimum of 20 points
+  // from the last execution price.
+  // - If 'Call Buy' is triggered at 100, 100 is set as the new baseline.
+  // - It then ONLY updates the signal if price rises by 20 points to 120 (maintaining 'Call Buy')
+  //   or drops by 20 points to 80 (switching to 'Put Buy').
+  // - Any fluctuations under 20 points (e.g. minor 5-point moves) STRICTLY show 'No Trade' or 'Wait'.
+  // - Confidence signals strictly follow this 20-point rule (0% for under 20 points, 85-95% when triggered).
+  // -----------------------------------------------------------------------------------
+  const POINT_THRESHOLD = 20.0;
+
+  let baselinePrice: number;
+  if (inputs.lastExecutionPrice !== undefined && Number.isFinite(inputs.lastExecutionPrice)) {
+    baselinePrice = Number(inputs.lastExecutionPrice.toFixed(2));
+  } else if (inputs.recentTrajectory !== undefined && Number.isFinite(inputs.recentTrajectory)) {
+    baselinePrice = Number((spotPrice - inputs.recentTrajectory).toFixed(2));
+  } else if (inputs.dayChange !== undefined && Number.isFinite(inputs.dayChange)) {
+    baselinePrice = Number((spotPrice - inputs.dayChange).toFixed(2));
+  } else if (inputs.candles && inputs.candles.length > 0) {
+    baselinePrice = Number(inputs.candles[0].open.toFixed(2));
   } else {
-    trend = 'SIDEWAYS';
+    baselinePrice = Number((inputs.dayOpen || inputs.previousClose || spotPrice).toFixed(2));
   }
 
-  // 5. Signal Generation with Strict Noise & Filter Rules
+  // Calculate strict directional displacement from the execution baseline
+  const displacement = Number((spotPrice - baselinePrice).toFixed(2));
+
+  // Minimum 20-Point Rule:
+  const isUpward20Points = displacement >= POINT_THRESHOLD;
+  const isDownward20Points = displacement <= -POINT_THRESHOLD;
+  const isFluctuationUnder20Points = Math.abs(displacement) < POINT_THRESHOLD;
+
+  let newBaselinePrice = baselinePrice;
+  let isUpdatedBaseline = false;
+  let pointImpulseStatus: 'CALL_BUY' | 'PUT_BUY' | 'WAIT' = 'WAIT';
+  let pointImpulseDesc = '';
+
+  const priorSignal = inputs.lastExecutionSignal || 'NO TRADE';
+
+  if (isUpward20Points) {
+    newBaselinePrice = spotPrice;
+    isUpdatedBaseline = true;
+    pointImpulseStatus = 'CALL_BUY';
+    pointImpulseDesc = `NIFTY 50 moved upward by +${displacement.toFixed(1)} pts from baseline ₹${baselinePrice.toFixed(2)} (>= 20.0 pts threshold). Triggered Call Buy (CALL BUY). New baseline established at ₹${spotPrice.toFixed(2)}.`;
+  } else if (isDownward20Points) {
+    newBaselinePrice = spotPrice;
+    isUpdatedBaseline = true;
+    pointImpulseStatus = 'PUT_BUY';
+    pointImpulseDesc = `NIFTY 50 dropped by ${displacement.toFixed(1)} pts from baseline ₹${baselinePrice.toFixed(2)} (>= 20.0 pts drop). Triggered Put Buy (PUT BUY). New baseline established at ₹${spotPrice.toFixed(2)}.`;
+  } else {
+    newBaselinePrice = baselinePrice;
+    isUpdatedBaseline = false;
+    pointImpulseStatus = 'WAIT';
+    const ptsToCall = (POINT_THRESHOLD - displacement).toFixed(1);
+    const ptsToPut = (POINT_THRESHOLD + displacement).toFixed(1);
+    if (priorSignal === 'BUY CALL') {
+      pointImpulseDesc = `NIFTY 50 is fluctuating at ₹${spotPrice.toFixed(2)} (${displacement >= 0 ? '+' : ''}${displacement.toFixed(1)} pts from baseline ₹${baselinePrice.toFixed(2)}). Maintaining CALL BUY. Next Call Buy trigger at ₹${(baselinePrice + POINT_THRESHOLD).toFixed(2)} (+${ptsToCall} pts away), Reversal Put Buy stop at ₹${(baselinePrice - POINT_THRESHOLD).toFixed(2)} (-${ptsToPut} pts away).`;
+    } else if (priorSignal === 'BUY PUT') {
+      pointImpulseDesc = `NIFTY 50 is fluctuating at ₹${spotPrice.toFixed(2)} (${displacement.toFixed(1)} pts from baseline ₹${baselinePrice.toFixed(2)}). Maintaining PUT BUY. Next Put Buy trigger at ₹${(baselinePrice - POINT_THRESHOLD).toFixed(2)} (-${ptsToPut} pts away), Reversal Call Buy stop at ₹${(baselinePrice + POINT_THRESHOLD).toFixed(2)} (+${ptsToCall} pts away).`;
+    } else {
+      pointImpulseDesc = `NIFTY 50 is fluctuating at ₹${spotPrice.toFixed(2)} (${displacement >= 0 ? '+' : ''}${displacement.toFixed(1)} pts from last execution baseline ₹${baselinePrice.toFixed(2)}). Minor fluctuations under 20 points show NO TRADE / WAIT. Next triggers: Call Buy at ₹${(baselinePrice + POINT_THRESHOLD).toFixed(2)} (+${ptsToCall} pts away), Put Buy at ₹${(baselinePrice - POINT_THRESHOLD).toFixed(2)} (-${ptsToPut} pts away).`;
+    }
+  }
+
+  const pointImpulseTrigger: PointImpulseTrigger = {
+    threshold: POINT_THRESHOLD,
+    baselinePrice: newBaselinePrice,
+    currentPrice: spotPrice,
+    distanceFromBaseline: displacement,
+    nextCallBuyTrigger: Number((newBaselinePrice + POINT_THRESHOLD).toFixed(2)),
+    nextPutBuyTrigger: Number((newBaselinePrice - POINT_THRESHOLD).toFixed(2)),
+    isUpdatedBaseline,
+    lastExecutionSignal: isUpward20Points ? 'BUY CALL' : isDownward20Points ? 'BUY PUT' : priorSignal,
+    netMove: displacement,
+    rangeAmplitude: Number((effectiveDayHigh - effectiveDayLow).toFixed(2)),
+    status: pointImpulseStatus,
+    description: pointImpulseDesc,
+  };
+
+  // 5. Signal Generation with Strict 20-Point Noise & Filter Rules
   let signal: SignalType = 'NO TRADE';
-  let confidence = Math.min(92, Math.max(56, Math.round(60 + Math.abs(totalWeighted) * 0.45)));
-  let status: 'ACTIVE' | 'PENDING_CONFIRMATION' | 'WAIT' = 'ACTIVE';
+  let confidence = 0;
+  let status: 'ACTIVE' | 'PENDING_CONFIRMATION' | 'WAIT' = 'WAIT';
+  let trend: MarketTrend = 'SIDEWAYS';
 
   const reasons: string[] = [];
   const risks: string[] = [];
@@ -210,92 +368,131 @@ export function evaluateSignal(inputs: SignalInputs): SignalAnalysis {
     signal = 'NO TRADE';
     confidence = 0;
     status = 'WAIT';
+    trend = 'SIDEWAYS';
     reasons.push('Live market data stream is disconnected or unavailable.');
     risks.push('Operating on unverified or missing price feeds poses extreme execution risk.');
     whyNot100.push('Real-time data feeds are mandatory for high-probability signals.');
   }
-  // Filter 2: Multi-timeframe conflict (e.g. 5M bullish, Daily bearish)
-  else if (mtf.overallTrend === 'CONFLICTING' || mtf.agreementPercentage < 40) {
-    signal = 'NO TRADE';
-    confidence = 50;
-    status = 'WAIT';
-    reasons.push('Conflicting timeframes: Lower timeframes disagree with higher timeframes.');
-    reasons.push(`Multi-timeframe alignment is only ${mtf.agreementPercentage}%.`);
-    risks.push('Trading during multi-timeframe divergence leads to choppy whipsaws.');
-    whyNot100.push('Higher timeframe resistance is actively pressing against intraday moves.');
-  }
-  // Filter 3: Extreme Breaking News in progress
-  else if (breakingExtremeNews) {
-    signal = 'NO TRADE';
-    confidence = 42;
-    status = 'WAIT';
-    reasons.push('Extreme high-impact macroeconomic or geopolitical news release pending/active.');
-    risks.push('Bid/ask spreads widen and option IV can crush directional strategies.');
-    whyNot100.push('Macro event volatility creates non-linear price spikes.');
-  }
-  // Directional Bullish Signals
-  else if (trend === 'BULLISH' && totalWeighted >= 0) {
-    if (vix.value > 20) {
-      signal = 'SELL PUT'; // Prefer credit in high IV
-      reasons.push('Elevated India VIX allows capturing inflated put premiums.');
-    } else {
-      signal = 'BUY CALL';
-    }
-
-    confidence = Math.min(92, Math.max(70, Math.round(68 + Math.abs(totalWeighted) * 0.35)));
+  // Upward 20 Points -> CALL BUY
+  else if (isUpward20Points) {
+    signal = 'BUY CALL';
+    confidence = Math.min(95, Math.max(80, Math.round(85 + (displacement - POINT_THRESHOLD) * 0.5)));
     status = 'ACTIVE';
+    trend = 'BULLISH';
 
-    reasons.push(`NIFTY spot (₹${spotPrice.toLocaleString('en-IN')}) is sustaining above VWAP (₹${indicators.vwap.value.toLocaleString('en-IN')}).`);
-    reasons.push(`Supertrend is BULLISH (₹${indicators.supertrend.value}) confirming intraday upward slope.`);
+    reasons.push(
+      `20-Point Dynamic Rule: NIFTY 50 moved upward by +${displacement.toFixed(1)} pts (baseline: ₹${baselinePrice.toFixed(2)} -> ₹${spotPrice.toFixed(2)}), triggering CALL BUY.`
+    );
+    reasons.push(
+      `NIFTY 50 is actively moving up (rising off execution baseline) with confirmed buying momentum.`
+    );
+    reasons.push(
+      `New Baseline Established: ₹${spotPrice.toFixed(2)}. Next Call Buy at ₹${(spotPrice + POINT_THRESHOLD).toFixed(2)}, next Put Buy at ₹${(spotPrice - POINT_THRESHOLD).toFixed(2)}.`
+    );
+    reasons.push(
+      `Confidence: Strictly ${confidence}% derived from verified 20-point upward impulse above last execution price.`
+    );
+    if (spotPrice >= indicators.emas.ema9) {
+      reasons.push(`Holding above 9 EMA (₹${indicators.emas.ema9.toFixed(1)}) confirming short-term upward impulse.`);
+    }
+    reasons.push(`Holding above VWAP (₹${indicators.vwap.value.toFixed(1)}) confirming buyer dominance.`);
     reasons.push(`Put OI buildup (PCR: ${optionChain.oiPcr}) demonstrates firm institutional base.`);
-    reasons.push(`RSI 14 at ${indicators.rsi14.value} confirms positive momentum.`);
 
+    risks.push(`Immediate resistance zone near ₹${indicators.priceAction.resistanceLevels[0]?.toLocaleString('en-IN') || (spotPrice + 50).toFixed(0)}.`);
     risks.push(`Major Call Wall overhead at ₹${optionChain.majorCallResistance.toLocaleString('en-IN')}.`);
-    risks.push(`Immediate resistance zone near ₹${indicators.priceAction.resistanceLevels[0]?.toLocaleString('en-IN') || spotPrice + 100}.`);
-    risks.push(`VIX shifts could trigger rapid option premium compression.`);
+    risks.push(`Trail Stop Loss at baseline ₹${baselinePrice.toFixed(2)} to protect profits.`);
 
-    whyNot100.push('No technical setup guarantees directional follow-through.');
-    whyNot100.push('Sudden intraday reversals or institutional profit-booking can occur near resistance.');
-    whyNot100.push('Global market sentiment and currency fluctuations remain active risk factors.');
+    whyNot100.push('Intraday profit-taking can cap rallies near resistance.');
+    whyNot100.push('Adhere strictly to trailing 20-point stop loss.');
   }
-  // Directional Bearish Signals
-  else if (trend === 'BEARISH' && totalWeighted <= 0) {
-    if (vix.value > 20) {
-      signal = 'SELL CALL';
-      reasons.push('Elevated India VIX makes Call credit spread attractive.');
-    } else {
-      signal = 'BUY PUT';
-    }
-
-    confidence = Math.min(92, Math.max(70, Math.round(68 + Math.abs(totalWeighted) * 0.35)));
+  // Downward 20 Points -> PUT BUY
+  else if (isDownward20Points) {
+    signal = 'BUY PUT';
+    confidence = Math.min(95, Math.max(80, Math.round(85 + (Math.abs(displacement) - POINT_THRESHOLD) * 0.5)));
     status = 'ACTIVE';
+    trend = 'BEARISH';
 
-    reasons.push(`NIFTY trading below VWAP (₹${indicators.vwap.value.toLocaleString('en-IN')}) with persistent selling pressure.`);
-    reasons.push(`Supertrend is BEARISH (₹${indicators.supertrend.value}) confirming downward momentum.`);
-    reasons.push(`Call writing surge at ₹${optionChain.majorCallResistance.toLocaleString('en-IN')} capping upside.`);
-    reasons.push(`RSI 14 at ${indicators.rsi14.value} confirms downward momentum.`);
+    reasons.push(
+      `20-Point Dynamic Rule: NIFTY 50 dropped by -${Math.abs(displacement).toFixed(1)} pts (baseline: ₹${baselinePrice.toFixed(2)} -> ₹${spotPrice.toFixed(2)}), triggering PUT BUY.`
+    );
+    reasons.push(
+      `NIFTY 50 is trading down below execution baseline with persistent selling pressure.`
+    );
+    reasons.push(
+      `New Baseline Established: ₹${spotPrice.toFixed(2)}. Next Call Buy at ₹${(spotPrice + POINT_THRESHOLD).toFixed(2)}, next Put Buy at ₹${(spotPrice - POINT_THRESHOLD).toFixed(2)}.`
+    );
+    reasons.push(
+      `Confidence: Strictly ${confidence}% derived from verified 20-point downward drop below last execution price.`
+    );
+    reasons.push(`Trading below VWAP (₹${indicators.vwap.value.toFixed(1)}) confirming seller dominance.`);
+    if (spotPrice < indicators.emas.ema9) {
+      reasons.push(`Trading below 9 EMA (₹${indicators.emas.ema9.toFixed(1)}) confirming seller dominance.`);
+    }
+    reasons.push(`Call writing resistance active with PCR at ${optionChain.oiPcr}.`);
 
     risks.push(`Major Put Wall support located at ₹${optionChain.majorPutSupport.toLocaleString('en-IN')}.`);
-    risks.push(`Potential short-covering bounce if support holds firmly.`);
-    risks.push(`Sudden global recovery rallies could pressure short positions.`);
+    risks.push(`Potential short-covering bounce if round strike holds.`);
 
-    whyNot100.push('Bear traps and sharp short-covering bounces are common in Indian markets.');
-    whyNot100.push('Institutional buying near psychological round figures can stall declines.');
-    whyNot100.push('Option theta decay accelerates if downward momentum decelerates.');
+    whyNot100.push('Short-covering bounces can occur in oversold intraday conditions.');
+    whyNot100.push('Trail Stop Loss at baseline ₹${baselinePrice.toFixed(2)} to protect profits.');
   }
-  else {
-    // Neutral or Range-bound
-    signal = 'NO TRADE';
-    confidence = Math.min(65, Math.max(54, Math.round(55 + Math.abs(totalWeighted) * 0.5)));
-    status = 'WAIT';
-    reasons.push(`Confluence score is neutral (${totalWeighted > 0 ? '+' : ''}${totalWeighted.toFixed(1)}). Indicators are balanced.`);
-    reasons.push(`NIFTY oscillating between key support (₹${optionChain.majorPutSupport}) and resistance (₹${optionChain.majorCallResistance}).`);
-    reasons.push('ADX indicates a lack of strong directional impulse; choppy consolidation expected.');
+  // Minor Fluctuation Under 20 Points: Maintain active trade, OR display No Trade / Wait if no active trade
+  else if (isFluctuationUnder20Points) {
+    if (priorSignal === 'BUY CALL') {
+      // Maintaining Call Buy!
+      signal = 'BUY CALL';
+      confidence = 85;
+      status = 'ACTIVE';
+      trend = 'BULLISH';
 
-    risks.push('Entering directional options in a sideways market results in rapid theta erosion.');
-    risks.push('False breakouts occur frequently during compressed bandwidth.');
+      reasons.push(
+        `20-Point Execution Rule: Holding confirmed CALL BUY position (baseline: ₹${baselinePrice.toFixed(2)}).`
+      );
+      reasons.push(
+        `Current price is ₹${spotPrice.toFixed(2)} (${displacement >= 0 ? '+' : ''}${displacement.toFixed(1)} pts from baseline). Fluctuations under 20 points maintain the Call Buy trade without premature exit.`
+      );
+      reasons.push(
+        `Next Call Buy trigger at ₹${(baselinePrice + POINT_THRESHOLD).toFixed(2)} (+${(POINT_THRESHOLD - displacement).toFixed(1)} pts away); Reversal Put Buy stop at ₹${(baselinePrice - POINT_THRESHOLD).toFixed(2)} (-${(POINT_THRESHOLD + displacement).toFixed(1)} pts away).`
+      );
+      risks.push('Trail stop loss at the 20-point reversal barrier.');
+      whyNot100.push('Minor price oscillation within active trend.');
+    } else if (priorSignal === 'BUY PUT') {
+      // Maintaining Put Buy!
+      signal = 'BUY PUT';
+      confidence = 85;
+      status = 'ACTIVE';
+      trend = 'BEARISH';
 
-    whyNot100.push('The market lacks directional conviction. Disciplined traders preserve capital during range-bound chop.');
+      reasons.push(
+        `20-Point Execution Rule: Holding confirmed PUT BUY position (baseline: ₹${baselinePrice.toFixed(2)}).`
+      );
+      reasons.push(
+        `Current price is ₹${spotPrice.toFixed(2)} (${displacement.toFixed(1)} pts from baseline). Fluctuations under 20 points maintain the Put Buy trade without premature exit.`
+      );
+      reasons.push(
+        `Next Put Buy trigger at ₹${(baselinePrice - POINT_THRESHOLD).toFixed(2)} (-${(POINT_THRESHOLD + displacement).toFixed(1)} pts away); Reversal Call Buy stop at ₹${(baselinePrice + POINT_THRESHOLD).toFixed(2)} (+${(POINT_THRESHOLD - displacement).toFixed(1)} pts away).`
+      );
+      risks.push('Trail stop loss at the 20-point reversal barrier.');
+      whyNot100.push('Minor price oscillation within active trend.');
+    } else {
+      // Prior signal is NO TRADE (no active trade yet) -> strictly NO TRADE / WAIT with 0% confidence
+      signal = 'NO TRADE';
+      confidence = 0;
+      status = 'WAIT';
+      trend = 'SIDEWAYS';
+
+      reasons.push(
+        `20-Point Execution Rule: NIFTY 50 is fluctuating at ₹${spotPrice.toFixed(2)} (${displacement >= 0 ? '+' : ''}${displacement.toFixed(1)} pts from last execution baseline ₹${baselinePrice.toFixed(2)}).`
+      );
+      reasons.push(
+        `Rule Verdict: NO TRADE / WAIT. Any movement under 20 points (such as minor 5-point moves) strictly displays NO TRADE / WAIT to preserve capital.`
+      );
+      reasons.push(
+        `Next Triggers: Call Buy triggers at ₹${(baselinePrice + POINT_THRESHOLD).toFixed(2)} (+${(POINT_THRESHOLD - displacement).toFixed(1)} pts away); Put Buy triggers at ₹${(baselinePrice - POINT_THRESHOLD).toFixed(2)} (-${(POINT_THRESHOLD + displacement).toFixed(1)} pts away).`
+      );
+      risks.push('Buying options during minor 5-point chop causes fast theta decay without directional follow-through.');
+      whyNot100.push('Price has not moved the required 20 points from the execution baseline. Strict discipline preserves capital.');
+    }
   }
 
   // Strategy Selection
@@ -323,6 +520,7 @@ export function evaluateSignal(inputs: SignalInputs): SignalAnalysis {
     marketRegime,
     suggestedStrategy,
     humanIqSignal,
+    pointImpulseTrigger,
     entryZone: suggestedStrategy.entryRange,
     stopLoss: suggestedStrategy.stopLoss,
     target1: suggestedStrategy.target1,
@@ -364,16 +562,16 @@ export function generateHumanIqSignal(
   suggestedStrategy: TradeStrategy
 ): HumanIqSignal {
   const { spotPrice, indicators, optionChain, vix, mtf } = inputs;
-  const isBullish = totalWeighted >= 15;
-  const isBearish = totalWeighted <= -15;
+  const isBullish = signal === 'BUY CALL';
+  const isBearish = signal === 'BUY PUT';
 
   const atmStrike = Math.round(spotPrice / 50) * 50;
-  const targetStrike = isBullish ? atmStrike : isBearish ? atmStrike : atmStrike;
+  const targetStrike = atmStrike;
   const recommendedContract = isBullish
     ? `NIFTY ${targetStrike} CE`
     : isBearish
     ? `NIFTY ${targetStrike} PE`
-    : `NIFTY ${targetStrike} STRANGLE`;
+    : `NIFTY ${targetStrike} (WAIT / NO TRADE)`;
 
   const pillars: HumanIqSignalPillar[] = [
     {

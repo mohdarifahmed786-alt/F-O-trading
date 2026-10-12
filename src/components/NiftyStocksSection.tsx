@@ -172,7 +172,7 @@ export const NiftyStocksSection: React.FC<NiftyStocksSectionProps> = ({
 
       {/* 3. STOCK CONSTITUENTS TABLE */}
       <div className="overflow-x-auto border border-slate-800/80 rounded-xl">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full text-left border-collapse min-w-[750px]">
           <thead className="bg-[#090d16] text-[10px] text-slate-400 border-b border-slate-800">
             <tr>
               <th className="py-2.5 px-3">STOCK / SYMBOL</th>

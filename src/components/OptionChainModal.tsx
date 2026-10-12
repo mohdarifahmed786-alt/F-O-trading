@@ -58,18 +58,18 @@ export const OptionChainModal: React.FC<OptionChainModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-[#0e1424] border border-slate-700/80 rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+      <div className="bg-[#0e1424] border border-slate-700/80 rounded-2xl w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Modal Header */}
-        <div className="p-4 md:p-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-white font-mono">NIFTY 50 Option Chain Intelligence</h2>
+        <div className="p-3 sm:p-5 md:p-6 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-900/60">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h2 className="text-sm sm:text-base md:text-xl font-bold text-white font-mono">NIFTY 50 Option Chain Intelligence</h2>
               <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-mono font-bold">
                 SPOT: ₹{spotPrice.toLocaleString('en-IN')}
               </span>
             </div>
-            <div className="flex items-center gap-4 text-xs font-mono text-slate-400 mt-1">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs font-mono text-slate-400 mt-1">
               <span>EXPIRY: <strong>{selectedExpiry}</strong></span>
               <span>·</span>
               <span>OI PCR: <strong className="text-emerald-400">{optionChain.oiPcr}</strong></span>
@@ -80,7 +80,7 @@ export const OptionChainModal: React.FC<OptionChainModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 ml-auto sm:ml-0 shrink-0">
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
               <input
@@ -88,7 +88,7 @@ export const OptionChainModal: React.FC<OptionChainModalProps> = ({
                 placeholder="Filter strike..."
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
-                className="pl-8 pr-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 w-32 font-mono"
+                className="pl-8 pr-3 py-1.5 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 w-28 sm:w-32 font-mono"
               />
             </div>
             <button
@@ -101,23 +101,23 @@ export const OptionChainModal: React.FC<OptionChainModalProps> = ({
         </div>
 
         {/* OI Walls & Insights Banner */}
-        <div className="bg-slate-950/70 border-b border-slate-800 px-6 py-2.5 flex flex-wrap items-center justify-between text-xs font-mono text-slate-300">
+        <div className="bg-slate-950/70 border-b border-slate-800 px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-300">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-emerald-400" />
-            <span>Put Floor Support (Max Put OI): <strong className="text-emerald-400">₹{optionChain.majorPutSupport}</strong></span>
+            <span>Put Support: <strong className="text-emerald-400">₹{optionChain.majorPutSupport}</strong></span>
           </div>
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-rose-400" />
-            <span>Call Ceiling Resistance (Max Call OI): <strong className="text-rose-400">₹{optionChain.majorCallResistance}</strong></span>
+            <span>Call Resistance: <strong className="text-rose-400">₹{optionChain.majorCallResistance}</strong></span>
           </div>
-          <div className="text-slate-400 text-[11px]">
+          <div className="text-slate-400 text-[11px] hidden md:block">
             *Shaded green = Call ITM · Shaded rose = Put ITM · Yellow = ATM
           </div>
         </div>
 
         {/* Option Chain Table */}
         <div className="overflow-x-auto overflow-y-auto flex-1 font-mono text-xs">
-          <table className="w-full text-right border-collapse">
+          <table className="w-full text-right border-collapse min-w-[720px]">
             <thead className="sticky top-0 bg-[#090d16] text-[11px] text-slate-400 border-b border-slate-800 shadow-sm z-10">
               <tr>
                 {/* Calls Header */}

@@ -2,6 +2,13 @@ import { MarketQuote, IndiaVixSummary } from '../types/market';
 import { Candle } from '../engine/indicators';
 import { generateCandles } from '../data/mockFeed';
 
+export interface ExecutionBaselineState {
+  baselinePrice: number;
+  lastSignal: 'BUY CALL' | 'BUY PUT' | 'NO TRADE';
+  lastExecutionTime: number;
+  totalExecutions: number;
+}
+
 export interface LiveMarketCache {
   quote: MarketQuote;
   vix: IndiaVixSummary;
@@ -15,20 +22,168 @@ export interface LiveMarketCache {
     previousClose: number;
     open: number;
   }>;
+  executionBaseline: ExecutionBaselineState;
   lastFetchTime: number;
 }
 
-function checkIsNseMarketOpen(): boolean {
-  const now = new Date();
-  const utcHours = now.getUTCHours();
-  const utcMinutes = now.getUTCMinutes();
-  const istMinutes = (utcHours * 60 + utcMinutes + 330) % 1440; // IST is UTC + 5:30
-  const istDay = (now.getUTCDay() + (utcHours * 60 + utcMinutes + 330 >= 1440 ? 1 : 0)) % 7;
+export const NSE_HOLIDAYS_SET = new Set([
+  // 2024
+  '2024-01-22', // Special Ram Mandir Ayodhya Holiday
+  '2024-01-26', // Republic Day
+  '2024-03-08', // Mahashivratri
+  '2024-03-25', // Holi
+  '2024-03-29', // Good Friday
+  '2024-04-11', // Id-Ul-Fitr (Ramzan Id)
+  '2024-04-17', // Shri Ram Navami
+  '2024-05-01', // Maharashtra Day
+  '2024-05-20', // General Parliamentary Elections
+  '2024-06-17', // Bakri Id
+  '2024-07-17', // Muharram
+  '2024-08-15', // Independence Day
+  '2024-10-02', // Mahatma Gandhi Jayanti
+  '2024-11-01', // Laxmi Pujan (Diwali)
+  '2024-11-15', // Guru Nanak Jayanti
+  '2024-11-20', // Maharashtra Assembly Elections
+  '2024-12-25', // Christmas
 
-  // Monday (1) to Friday (5)
-  if (istDay === 0 || istDay === 6) return false;
-  // 9:15 AM (555 mins) to 3:30 PM (930 mins)
-  return istMinutes >= 555 && istMinutes <= 930;
+  // 2025
+  '2025-01-26', // Republic Day
+  '2025-02-26', // Mahashivratri
+  '2025-03-14', // Holi
+  '2025-03-31', // Id-Ul-Fitr
+  '2025-04-10', // Mahavir Jayanti
+  '2025-04-14', // Dr. Baba Saheb Ambedkar Jayanti
+  '2025-04-18', // Good Friday
+  '2025-05-01', // Maharashtra Day
+  '2025-06-07', // Bakri Id
+  '2025-07-06', // Muharram
+  '2025-08-15', // Independence Day
+  '2025-08-27', // Ganesh Chaturthi
+  '2025-10-02', // Mahatma Gandhi Jayanti
+  '2025-10-21', // Diwali Laxmi Pujan
+  '2025-10-22', // Diwali Balipratipada
+  '2025-11-05', // Guru Nanak Jayanti
+  '2025-12-25', // Christmas
+
+  // 2026
+  '2026-01-26', // Republic Day
+  '2026-02-15', // Mahashivratri
+  '2026-03-03', // Holi
+  '2026-03-20', // Id-Ul-Fitr
+  '2026-04-03', // Good Friday
+  '2026-04-14', // Dr. Baba Saheb Ambedkar Jayanti
+  '2026-05-01', // Maharashtra Day
+  '2026-05-27', // Bakri Id
+  '2026-06-25', // Muharram
+  '2026-08-15', // Independence Day
+  '2026-09-14', // Ganesh Chaturthi
+  '2026-10-02', // Mahatma Gandhi Jayanti
+  '2026-10-19', // Dussehra
+  '2026-11-08', // Diwali Laxmi Pujan
+  '2026-11-09', // Diwali Balipratipada
+  '2026-11-24', // Guru Nanak Jayanti
+  '2026-12-25', // Christmas
+
+  // 2027
+  '2027-01-26', // Republic Day
+  '2027-03-22', // Holi
+  '2027-03-26', // Good Friday
+  '2027-04-14', // Ambedkar Jayanti
+  '2027-05-01', // Maharashtra Day
+  '2027-08-15', // Independence Day
+  '2027-10-02', // Gandhi Jayanti
+  '2027-10-28', // Diwali
+  '2027-12-25', // Christmas
+]);
+
+export interface NseMarketStatusInfo {
+  isOpen: boolean;
+  status: 'LIVE' | 'MARKET CLOSED';
+  reason: string;
+  istTimeString: string;
+}
+
+export function getNseMarketInfo(): NseMarketStatusInfo {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    weekday: 'short',
+  });
+
+  const parts = formatter.formatToParts(now);
+  const partMap: Record<string, string> = {};
+  for (const part of parts) {
+    partMap[part.type] = part.value;
+  }
+
+  const year = partMap.year || '2026';
+  const month = partMap.month || '10';
+  const day = partMap.day || '12';
+  const hour = parseInt(partMap.hour || '0', 10);
+  const minute = parseInt(partMap.minute || '0', 10);
+  const second = partMap.second || '00';
+  const weekday = partMap.weekday || 'Mon';
+
+  const dateKey = `${year}-${month}-${day}`;
+  const totalMinutes = hour * 60 + minute;
+  const istTimeString = `${partMap.hour}:${partMap.minute}:${second} IST`;
+
+  // 1. Check Weekend
+  if (weekday === 'Sat' || weekday === 'Sun') {
+    return {
+      isOpen: false,
+      status: 'MARKET CLOSED',
+      reason: `Weekend (${weekday === 'Sat' ? 'Saturday' : 'Sunday'}) - NSE Trading Closed`,
+      istTimeString,
+    };
+  }
+
+  // 2. Check Official NSE Holiday
+  if (NSE_HOLIDAYS_SET.has(dateKey)) {
+    return {
+      isOpen: false,
+      status: 'MARKET CLOSED',
+      reason: `NSE Trading Holiday (${dateKey}) - Exchange Closed`,
+      istTimeString,
+    };
+  }
+
+  // 3. Regular NSE Trading Session: 09:15 AM (555 mins) to 03:30 PM (930 mins) IST
+  if (totalMinutes < 555) {
+    return {
+      isOpen: false,
+      status: 'MARKET CLOSED',
+      reason: 'Pre-Market Session (NSE opens at 09:15 AM IST)',
+      istTimeString,
+    };
+  }
+
+  if (totalMinutes >= 930) {
+    return {
+      isOpen: false,
+      status: 'MARKET CLOSED',
+      reason: 'Post-Market Session (NSE closed at 03:30 PM IST)',
+      istTimeString,
+    };
+  }
+
+  return {
+    isOpen: true,
+    status: 'LIVE',
+    reason: 'Normal Trading Session (09:15 - 15:30 IST)',
+    istTimeString,
+  };
+}
+
+export function checkIsNseMarketOpen(): boolean {
+  return getNseMarketInfo().isOpen;
 }
 
 const DEFAULT_STOCKS = {
@@ -50,6 +205,7 @@ const DEFAULT_STOCKS = {
 };
 
 const initialCandles = generateCandles(22485.0, 90, 0.25);
+const initialMarketInfo = getNseMarketInfo();
 
 let state: LiveMarketCache = {
   quote: {
@@ -64,9 +220,9 @@ let state: LiveMarketCache = {
     volume: 28400000,
     vwap: 22520.30,
     timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Kolkata' }).toUpperCase(),
-    status: 'LIVE',
+    status: initialMarketInfo.status,
     delaySeconds: 0,
-    isMarketOpen: checkIsNseMarketOpen(),
+    isMarketOpen: initialMarketInfo.isOpen,
     nextUpdateInSeconds: 15,
   },
   vix: {
@@ -80,8 +236,53 @@ let state: LiveMarketCache = {
   },
   candles: initialCandles,
   stockQuotes: { ...DEFAULT_STOCKS },
+  executionBaseline: {
+    baselinePrice: 22460.00,
+    lastSignal: 'BUY CALL',
+    lastExecutionTime: Date.now() - 1800000,
+    totalExecutions: 1,
+  },
   lastFetchTime: Date.now(),
 };
+
+export function updateExecutionBaseline(price: number, signal: 'BUY CALL' | 'BUY PUT' | 'NO TRADE') {
+  state.executionBaseline = {
+    baselinePrice: Number(price.toFixed(2)),
+    lastSignal: signal,
+    lastExecutionTime: Date.now(),
+    totalExecutions: (state.executionBaseline?.totalExecutions || 0) + 1,
+  };
+}
+
+export function setCustomExecutionBaseline(price: number) {
+  state.executionBaseline = {
+    baselinePrice: Number(price.toFixed(2)),
+    lastSignal: 'NO TRADE',
+    lastExecutionTime: Date.now(),
+    totalExecutions: state.executionBaseline?.totalExecutions || 0,
+  };
+}
+
+export function simulatePriceShift(deltaPoints: number) {
+  const newPrice = Number((state.quote.currentPrice + deltaPoints).toFixed(2));
+  state.quote.currentPrice = newPrice;
+  state.quote.change = Number((newPrice - state.quote.previousClose).toFixed(2));
+  state.quote.changePercent = Number(((state.quote.change / state.quote.previousClose) * 100).toFixed(2));
+  if (newPrice > state.quote.dayHigh) state.quote.dayHigh = newPrice;
+  if (newPrice < state.quote.dayLow) state.quote.dayLow = newPrice;
+  return state.quote;
+}
+
+export function resetBaselineToPrice(price?: number) {
+  const targetPrice = price !== undefined ? price : state.quote.currentPrice;
+  state.executionBaseline = {
+    baselinePrice: Number(targetPrice.toFixed(2)),
+    lastSignal: 'NO TRADE',
+    lastExecutionTime: Date.now(),
+    totalExecutions: 0,
+  };
+  return state.executionBaseline;
+}
 
 const NIFTY_STOCKS_SYMBOLS = Object.keys(DEFAULT_STOCKS);
 
@@ -172,7 +373,7 @@ export async function fetchLiveNifty(): Promise<void> {
           second: '2-digit',
           timeZone: 'Asia/Kolkata',
         }).toUpperCase(),
-        status: 'LIVE',
+        status: getNseMarketInfo().status,
         delaySeconds: 0,
         isMarketOpen: checkIsNseMarketOpen(),
         nextUpdateInSeconds: 15,
@@ -282,8 +483,17 @@ export async function fetchLiveStocks(): Promise<void> {
 
 /**
  * Perform a micro-tick update to give responsive live pricing every 2 seconds
+ * Strictly inactive when the NSE market is closed or on holidays
  */
 export function tickMicroMarket() {
+  const marketInfo = getNseMarketInfo();
+  if (!marketInfo.isOpen) {
+    // When NSE Nifty 50 is closed or on a trading holiday, prices must NOT move!
+    state.quote.isMarketOpen = false;
+    state.quote.status = 'MARKET CLOSED';
+    return;
+  }
+
   const delta = (Math.random() - 0.485) * 1.85;
   const newPrice = Number((state.quote.currentPrice + delta).toFixed(2));
   const change = Number((newPrice - state.quote.previousClose).toFixed(2));
@@ -292,10 +502,11 @@ export function tickMicroMarket() {
   state.quote.currentPrice = newPrice;
   state.quote.change = change;
   state.quote.changePercent = changePercent;
+  state.quote.status = 'LIVE';
   if (newPrice > state.quote.dayHigh) state.quote.dayHigh = newPrice;
   if (newPrice < state.quote.dayLow) state.quote.dayLow = newPrice;
   state.quote.volume += Math.floor(Math.random() * 450 + 150);
-  state.quote.isMarketOpen = checkIsNseMarketOpen();
+  state.quote.isMarketOpen = true;
   state.quote.timestamp = new Date().toLocaleTimeString('en-IN', {
     hour: '2-digit',
     minute: '2-digit',

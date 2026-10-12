@@ -32,23 +32,25 @@ import { calculateNseOptionPrice } from '../engine/blackScholes';
 /**
  * Generate synthetic historical candles for technical analysis
  */
-export function generateCandles(basePrice: number, count = 120, trendBias = 0.3): Candle[] {
+export function generateCandles(basePrice: number, count = 120, trendBias = 0.3, netChange?: number): Candle[] {
   const candles: Candle[] = [];
-  let currentPrice = basePrice - 180;
+  const dayChange = netChange !== undefined ? netChange : (trendBias >= 0 ? 65 : -65);
+  // Starting price at the beginning of the period
+  let currentPrice = Number((basePrice - dayChange).toFixed(2));
   const now = Date.now();
   const intervalMs = 5 * 60 * 1000; // 5-minute candles
 
   for (let i = count; i >= 0; i--) {
     const timestamp = now - i * intervalMs;
-    const volatility = 12 + Math.random() * 8;
-    const direction = (Math.random() - 0.46) + trendBias * 0.1; // slight upward drift
-    const change = direction * volatility;
-
+    const progress = (count - i) / count;
+    const expectedCurrent = (basePrice - dayChange) + dayChange * progress;
+    const volatility = 4 + Math.random() * 6;
+    const noise = (Math.random() - 0.5) * volatility;
+    const close = Number((i === 0 ? basePrice : expectedCurrent + noise).toFixed(2));
     const open = Number(currentPrice.toFixed(2));
-    const close = Number((open + change).toFixed(2));
-    const high = Number((Math.max(open, close) + Math.random() * 8).toFixed(2));
-    const low = Number((Math.min(open, close) - Math.random() * 8).toFixed(2));
-    const volume = Math.floor(45000 + Math.random() * 85000);
+    const high = Number((Math.max(open, close) + Math.random() * 4).toFixed(2));
+    const low = Number((Math.min(open, close) - Math.random() * 4).toFixed(2));
+    const volume = Math.floor(40000 + Math.random() * 70000);
 
     candles.push({ timestamp, open, high, low, close, volume });
     currentPrice = close;
@@ -231,7 +233,7 @@ export function buildTechnicalIndicators(candles: Candle[], currentPrice: number
 /**
  * Builds realistic NIFTY 50 Option Chain centered at spot price
  */
-export function generateOptionChain(spotPrice: number, spotChange: number = -198.50): OptionChainSummary {
+export function generateOptionChain(spotPrice: number, spotChange = 0): OptionChainSummary {
   const atmStrike = Math.round(spotPrice / 50) * 50;
   const strikes: OptionStrikeRow[] = [];
   const strikeCount = 13; // 6 ITM, 1 ATM, 6 OTM
@@ -240,6 +242,7 @@ export function generateOptionChain(spotPrice: number, spotChange: number = -198
 
   const daysToExpiry = 5; // standard current weekly expiry
   const baseIv = 0.1446;
+  const isBearish = spotChange < 0;
 
   for (let i = 0; i < strikeCount; i++) {
     const strike = startStrike + i * step;
@@ -256,14 +259,27 @@ export function generateOptionChain(spotPrice: number, spotChange: number = -198
     );
 
     // Realistic Open Interest in Lakhs (e.g. 15L to 135L)
-    const callBase = Math.floor(7500000 / (1 + Math.pow(Math.abs(strike - (atmStrike + step * 2)) / (step * 3), 1.5)));
-    const putBase = Math.floor(7800000 / (1 + Math.pow(Math.abs(strike - (atmStrike - step * 2)) / (step * 3), 1.5)));
+    const callBias = isBearish ? 1.45 : 0.85;
+    const putBias = isBearish ? 0.75 : 1.45;
 
-    const callOi = strike === atmStrike + step * 2 ? 13420000 : callBase;
-    const putOi = strike === atmStrike - step * 2 ? 12850000 : putBase;
+    const callBase = Math.floor(7500000 / (1 + Math.pow(Math.abs(strike - (atmStrike + step * 2)) / (step * 3), 1.5)) * callBias);
+    const putBase = Math.floor(7800000 / (1 + Math.pow(Math.abs(strike - (atmStrike - step * 2)) / (step * 3), 1.5)) * putBias);
 
-    const callChangeOi = Math.floor((Math.random() - 0.35) * (callOi * 0.12));
-    const putChangeOi = Math.floor((Math.random() - 0.25) * (putOi * 0.12));
+    // Dynamic institutional resistance / support walls
+    const callWallStrike = isBearish ? atmStrike + step : atmStrike + step * 3;
+    const putWallStrike = isBearish ? atmStrike - step * 3 : atmStrike - step;
+
+    const callOi = strike === callWallStrike ? 14200000 : callBase;
+    const putOi = strike === putWallStrike ? 13800000 : putBase;
+
+    // Call and Put OI changes reflect realistic institutional positioning
+    const callChangeOi = isBearish
+      ? Math.floor(Math.abs(Math.random() * (callOi * 0.14) + 25000)) // Heavy call writing capping rally
+      : Math.floor((Math.random() - 0.45) * (callOi * 0.10));
+
+    const putChangeOi = isBearish
+      ? Math.floor((Math.random() - 0.55) * (putOi * 0.10)) // Put unwinding on downward move
+      : Math.floor(Math.abs(Math.random() * (putOi * 0.14) + 25000)); // Heavy put writing supporting floor
 
     const callVol = Math.floor(callOi * 0.45);
     const putVol = Math.floor(putOi * 0.48);
@@ -292,7 +308,7 @@ export function generateOptionChain(spotPrice: number, spotChange: number = -198
         iv: bs.iv,
         bid: Math.max(0.05, Number((bs.putLtp - 0.15).toFixed(2))),
         ask: Number((bs.putLtp + 0.15).toFixed(2)),
-        buildup: putChangeOi > 5000 ? 'LONG_BUILDUP' : 'LONG_UNWINDING',
+        buildup: putChangeOi > 5000 ? (isBearish ? 'LONG_BUILDUP' : 'SHORT_BUILDUP') : 'LONG_UNWINDING',
       },
       isAtm,
       isItmCall: spotPrice > strike,
@@ -309,7 +325,28 @@ export function generateOptionChain(spotPrice: number, spotChange: number = -198
 /**
  * Builds multi-timeframe trend alignment matrix
  */
-export function buildMultiTimeframeSummary(): MultiTimeframeSummary {
+export function buildMultiTimeframeSummary(spotPrice?: number, change?: number, indicators?: TechnicalIndicators): MultiTimeframeSummary {
+  const isBearish = change !== undefined ? change < 0 : (indicators ? indicators.vwap.relation === 'BELOW' : false);
+
+  if (isBearish) {
+    const tf5m = { timeframe: '5m' as const, label: '5-Minute', trend: 'BEARISH' as const, rsi: 38.4, emaTrend: 'BEARISH' as const, macdSignal: 'BEARISH' as const, score: 28 };
+    const tf15m = { timeframe: '15m' as const, label: '15-Minute', trend: 'BEARISH' as const, rsi: 41.2, emaTrend: 'BEARISH' as const, macdSignal: 'BEARISH' as const, score: 32 };
+    const tf30m = { timeframe: '30m' as const, label: '30-Minute', trend: 'BEARISH' as const, rsi: 43.8, emaTrend: 'BEARISH' as const, macdSignal: 'BEARISH' as const, score: 35 };
+    const tf1h = { timeframe: '1h' as const, label: '1-Hour', trend: 'BEARISH' as const, rsi: 45.1, emaTrend: 'BEARISH' as const, macdSignal: 'BEARISH' as const, score: 38 };
+    const tfDaily = { timeframe: 'daily' as const, label: 'Daily', trend: 'BEARISH' as const, rsi: 47.0, emaTrend: 'BEARISH' as const, macdSignal: 'NEUTRAL' as const, score: 44 };
+
+    const timeframes = { '5m': tf5m, '15m': tf15m, '30m': tf30m, '1h': tf1h, 'daily': tfDaily };
+    const bearishCount = Object.values(timeframes).filter(t => t.trend === 'BEARISH').length;
+    const agreement = Math.round((bearishCount / 5) * 100);
+
+    return {
+      timeframes,
+      overallTrend: 'STRONG BEARISH',
+      agreementPercentage: agreement,
+      recommendation: 'TRADE_WITH_TREND',
+    };
+  }
+
   const tf5m = { timeframe: '5m' as const, label: '5-Minute', trend: 'BULLISH' as const, rsi: 62.4, emaTrend: 'BULLISH' as const, macdSignal: 'BULLISH' as const, score: 72 };
   const tf15m = { timeframe: '15m' as const, label: '15-Minute', trend: 'BULLISH' as const, rsi: 59.8, emaTrend: 'BULLISH' as const, macdSignal: 'BULLISH' as const, score: 68 };
   const tf30m = { timeframe: '30m' as const, label: '30-Minute', trend: 'BULLISH' as const, rsi: 57.2, emaTrend: 'BULLISH' as const, macdSignal: 'BULLISH' as const, score: 64 };

@@ -69,12 +69,12 @@ export const GraphSection: React.FC<GraphSectionProps> = ({
 
   // SVG Chart dimensions
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(900);
+  const [containerWidth, setContainerWidth] = useState(800);
 
   useEffect(() => {
     const updateWidth = () => {
       if (containerRef.current) {
-        setContainerWidth(Math.max(600, containerRef.current.clientWidth));
+        setContainerWidth(Math.max(300, containerRef.current.clientWidth));
       }
     };
     updateWidth();
@@ -328,7 +328,7 @@ export const GraphSection: React.FC<GraphSectionProps> = ({
         </div>
 
         {/* Timeframe Tabs & Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Timeframe Chips */}
           <div className="flex items-center p-0.5 bg-slate-950 border border-slate-800 rounded-lg">
             {(['1m', '5m', '15m', '1h', '1D'] as Timeframe[]).map((tf) => (
@@ -364,13 +364,13 @@ export const GraphSection: React.FC<GraphSectionProps> = ({
       </div>
 
       {/* 2. INDICATOR TOGGLE RIBBON */}
-      <div className="bg-[#090d16] border border-slate-800/80 rounded-xl p-2.5 px-3 flex items-center justify-between gap-2 overflow-x-auto text-[11px]">
+      <div className="bg-[#090d16] border border-slate-800/80 rounded-xl p-2.5 px-3 flex items-center justify-between gap-2 overflow-x-auto scrollbar-none text-[11px]">
         <div className="flex items-center gap-2 shrink-0 text-slate-400">
           <Sliders className="w-3.5 h-3.5 text-slate-500" />
           <span className="font-semibold uppercase text-[10px] tracking-wider text-slate-500">INDICATORS:</span>
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
           {/* EMA 9 */}
           <button
             onClick={() => setShowEma9(!showEma9)}
@@ -515,7 +515,7 @@ export const GraphSection: React.FC<GraphSectionProps> = ({
             width="100%"
             height={chartHeight}
             viewBox={`0 0 ${containerWidth} ${chartHeight}`}
-            className="overflow-visible cursor-crosshair"
+            className="overflow-hidden cursor-crosshair"
             onMouseMove={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
               const mouseX = e.clientX - rect.left;
@@ -1097,27 +1097,27 @@ export const GraphSection: React.FC<GraphSectionProps> = ({
           </div>
 
           {/* High-Probability Execution Vector */}
-          <div className="bg-violet-950/30 border border-violet-500/30 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-4 text-xs">
+          <div className="bg-violet-950/30 border border-violet-500/30 rounded-xl p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-3 sm:gap-4 text-xs">
               <div>
                 <span className="text-slate-400 text-[10px] block">RECOMMENDED:</span>
                 <strong className="text-amber-400 font-mono text-sm">{humanIq.executionVector.recommendedContract}</strong>
               </div>
-              <div className="border-l border-slate-800 pl-3">
+              <div className="sm:border-l sm:border-slate-800 sm:pl-3">
                 <span className="text-slate-400 text-[10px] block">ENTRY TRIGGER:</span>
                 <span className="text-white font-semibold">{humanIq.executionVector.entryTrigger}</span>
               </div>
-              <div className="border-l border-slate-800 pl-3">
+              <div className="sm:border-l sm:border-slate-800 sm:pl-3">
                 <span className="text-slate-400 text-[10px] block">STOP LOSS:</span>
                 <span className="text-rose-400 font-bold">₹{humanIq.executionVector.stopLoss.toLocaleString('en-IN')}</span>
               </div>
-              <div className="border-l border-slate-800 pl-3">
+              <div className="sm:border-l sm:border-slate-800 sm:pl-3">
                 <span className="text-slate-400 text-[10px] block">TARGET 1 / 2:</span>
                 <span className="text-emerald-400 font-bold">
                   ₹{humanIq.executionVector.target1.toLocaleString('en-IN')} / ₹{humanIq.executionVector.target2.toLocaleString('en-IN')}
                 </span>
               </div>
-              <div className="border-l border-slate-800 pl-3">
+              <div className="col-span-2 sm:col-span-1 sm:border-l sm:border-slate-800 sm:pl-3">
                 <span className="text-slate-400 text-[10px] block">RISK : REWARD:</span>
                 <span className="text-sky-300 font-bold">{humanIq.executionVector.riskRewardRatio} ({humanIq.executionVector.expectedValue})</span>
               </div>
@@ -1126,7 +1126,7 @@ export const GraphSection: React.FC<GraphSectionProps> = ({
             {onSelectStockForTrade && (
               <button
                 onClick={() => onSelectStockForTrade(selectedSymbol)}
-                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/20 cursor-pointer transition-all flex items-center gap-1.5"
+                className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-lg shadow-lg shadow-emerald-500/20 cursor-pointer transition-all flex items-center justify-center gap-1.5"
               >
                 <span>⚡ Trade In Option Chain</span>
               </button>

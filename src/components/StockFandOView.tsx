@@ -76,24 +76,24 @@ export const StockFandOView: React.FC<StockFandOViewProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/85 backdrop-blur-md animate-fade-in font-mono text-xs">
-      <div className="bg-[#0e1424] border border-slate-700/80 rounded-2xl w-full max-w-6xl max-h-[95vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-mono text-xs">
+      <div className="bg-[#0e1424] border border-slate-700/80 rounded-2xl w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
         {/* 1. STOCK F&O HEADER PANEL */}
-        <div className="p-4 md:p-5 border-b border-slate-800 bg-slate-900/80 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
+        <div className="p-3.5 sm:p-5 border-b border-slate-800 bg-slate-900/80 flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <span className="text-xl md:text-2xl font-bold text-white tracking-tight">{stock.symbol}</span>
               <span className="text-xs text-slate-400 font-sans hidden sm:inline">{stock.name}</span>
-              <span className="text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded">
+              <span className="text-[10px] sm:text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded">
                 {stock.sector}
               </span>
-              <span className="text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded">
+              <span className="text-[10px] sm:text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded">
                 LOT: {stock.lotSize}
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 text-xs mt-1.5">
-              <span className="text-xl font-bold text-white tabular-nums">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs mt-1.5">
+              <span className="text-lg sm:text-xl font-bold text-white tabular-nums">
                 ₹{stock.currentPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
               <span className={`font-bold tabular-nums ${isPos ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -101,8 +101,8 @@ export const StockFandOView: React.FC<StockFandOViewProps> = ({
               </span>
               <span className="text-slate-500">·</span>
               <span className="text-slate-400">VWAP: ₹{stock.vwap.toLocaleString('en-IN')}</span>
-              <span className="text-slate-500">·</span>
-              <span className="text-slate-400">DAY: ₹{stock.dayLow} – ₹{stock.dayHigh}</span>
+              <span className="text-slate-500 hidden xs:inline">·</span>
+              <span className="text-slate-400 hidden xs:inline">DAY: ₹{stock.dayLow} – ₹{stock.dayHigh}</span>
             </div>
           </div>
 
@@ -164,7 +164,7 @@ export const StockFandOView: React.FC<StockFandOViewProps> = ({
 
         {/* 3. FLATTRADE-STYLE OPTION CHAIN TABLE */}
         <div className="overflow-x-auto overflow-y-auto flex-1 font-mono text-xs">
-          <table className="w-full text-center border-collapse">
+          <table className="w-full text-center border-collapse min-w-[700px]">
             <thead className="sticky top-0 bg-[#090d16] text-[10px] text-slate-400 border-b border-slate-800 z-10">
               <tr>
                 <th colSpan={4} className="py-2 px-3 text-left font-bold text-emerald-400 border-r border-slate-800 bg-emerald-950/20">
@@ -295,22 +295,22 @@ export const StockFandOView: React.FC<StockFandOViewProps> = ({
 
         {/* 4. SELECTED OPTION CONTRACT AI ANALYSIS & PAPER TRADE FOOTER */}
         {activeStrike && (
-          <div className="p-4 border-t border-slate-800 bg-[#090d16] flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="p-3 sm:p-4 border-t border-slate-800 bg-[#090d16] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
             <div className="space-y-1 w-full md:w-auto">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-400" />
-                <span className="font-bold text-white text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="font-bold text-white text-xs sm:text-sm">
                   {stock.symbol} {activeStrike.strikePrice} {selectedOptionType} ({selectedAction})
                 </span>
-                <span className="text-slate-400">· LTP: <strong className="text-white">₹{selectedOptionType === 'CE' ? activeStrike.call.ltp : activeStrike.put.ltp}</strong></span>
-                <span className="text-slate-400">· Lot Size: <strong className="text-white">{stock.lotSize}</strong></span>
+                <span className="text-slate-400 text-[11px]">· LTP: <strong className="text-white">₹{selectedOptionType === 'CE' ? activeStrike.call.ltp : activeStrike.put.ltp}</strong></span>
+                <span className="text-slate-400 text-[11px]">· Lot Size: <strong className="text-white">{stock.lotSize}</strong></span>
               </div>
-              <p className="text-[11px] text-slate-400 font-sans">
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-sans">
                 <strong>Option Rationale:</strong> Underlying {stock.symbol} is trading {stock.trend.toLowerCase()} at ₹{stock.currentPrice}. {selectedOptionType === 'CE' ? 'Call option delta captures upside momentum.' : 'Put option delta positions for breakdown continuation.'}
               </p>
             </div>
 
-            <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full md:w-auto justify-between sm:justify-end">
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-400 text-[11px]">Lots:</span>
                 <input
@@ -325,7 +325,7 @@ export const StockFandOView: React.FC<StockFandOViewProps> = ({
 
               <button
                 onClick={handleConfirmTrade}
-                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-colors cursor-pointer uppercase shadow whitespace-nowrap"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg transition-colors cursor-pointer uppercase shadow whitespace-nowrap text-xs"
               >
                 <span>Execute in Paper Trade</span>
                 <ArrowRight className="w-3.5 h-3.5" />

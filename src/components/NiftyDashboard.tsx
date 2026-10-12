@@ -59,6 +59,7 @@ interface NiftyDashboardProps {
   onOpenOptionChain: () => void;
   onOpenBacktest: () => void;
   onOpenChat?: (initialPrompt?: string) => void;
+  onRefreshMarket?: () => void;
 }
 
 export const NiftyDashboard: React.FC<NiftyDashboardProps> = ({
@@ -75,13 +76,47 @@ export const NiftyDashboard: React.FC<NiftyDashboardProps> = ({
   onOpenOptionChain,
   onOpenBacktest,
   onOpenChat,
+  onRefreshMarket,
 }) => {
   const [aiAnalysisResult, setAiAnalysisResult] = useState<any | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
+  const [simulating, setSimulating] = useState(false);
   const [simpleMode, setSimpleMode] = useState<boolean>(true);
   const [showConstituentDirectory, setShowConstituentDirectory] = useState<boolean>(false);
   const [selectedStockForChain, setSelectedStockForChain] = useState<string>('NIFTY 50');
   const optionChainRef = React.useRef<HTMLDivElement>(null);
+
+  const handleSimulateMove = async (deltaPoints: number) => {
+    try {
+      setSimulating(true);
+      await fetch('/api/simulate-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deltaPoints }),
+      });
+      if (onRefreshMarket) onRefreshMarket();
+    } catch {
+      // fallback
+    } finally {
+      setSimulating(false);
+    }
+  };
+
+  const handleResetBaseline = async (price?: number) => {
+    try {
+      setSimulating(true);
+      await fetch('/api/reset-baseline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ price }),
+      });
+      if (onRefreshMarket) onRefreshMarket();
+    } catch {
+      // fallback
+    } finally {
+      setSimulating(false);
+    }
+  };
 
   const handleSelectStockForOptionChain = (symbol: string) => {
     setSelectedStockForChain(symbol);
@@ -157,37 +192,44 @@ export const NiftyDashboard: React.FC<NiftyDashboardProps> = ({
   return (
     <div className="space-y-6">
       {/* 1. TOP HERO SECTION: NIFTY 50 PRICE & CORE SIGNAL */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch">
         {/* Left: NIFTY 50 Spot Metric Panel */}
-        <div className="lg:col-span-6 bg-slate-900/90 border border-slate-800 rounded-xl p-6 flex flex-col justify-between shadow-sm">
+        <div className="lg:col-span-6 bg-slate-900/90 border border-slate-800 rounded-xl p-4 sm:p-6 flex flex-col justify-between shadow-sm">
           <div>
-            <div className="flex items-center justify-between text-xs text-slate-400 font-mono mb-2">
-              <span className="tracking-wider uppercase font-bold text-emerald-400 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                NSE LIVE SPOT · NIFTY 50
-                <span className="text-[11px] text-slate-300 font-mono font-medium ml-1.5 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 font-mono mb-2">
+              <span className={`tracking-wider uppercase font-bold flex items-center gap-1.5 flex-wrap ${
+                quote.isMarketOpen ? 'text-emerald-400' : 'text-amber-400'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${quote.isMarketOpen ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <span>{quote.isMarketOpen ? 'NSE LIVE SPOT · NIFTY 50' : 'NSE CLOSED · NIFTY 50'}</span>
+                <span className="text-[10px] sm:text-[11px] text-slate-300 font-mono font-medium ml-1 bg-slate-950 px-1.5 sm:px-2 py-0.5 rounded border border-slate-800">
                   {quote.timestamp}
                 </span>
+                {!quote.isMarketOpen && (
+                  <span className="text-[10px] font-semibold text-amber-300/90 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded">
+                    MARKET CLOSED (PRICES FROZEN)
+                  </span>
+                )}
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs">
                 <span>OPEN: ₹{quote.open.toLocaleString('en-IN')}</span>
                 <span>·</span>
-                <span>PREV CLOSE: ₹{quote.previousClose.toLocaleString('en-IN')}</span>
+                <span>PREV: ₹{quote.previousClose.toLocaleString('en-IN')}</span>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-baseline gap-4 mb-4">
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white font-mono tabular-nums">
+            <div className="flex flex-wrap items-baseline gap-2 sm:gap-4 mb-4">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white font-mono tabular-nums">
                 ₹{quote.currentPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h1>
-              <div className={`flex items-center text-lg md:text-xl font-bold font-mono tabular-nums ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <div className={`flex items-center text-base sm:text-lg md:text-xl font-bold font-mono tabular-nums ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {isPositive ? '+' : ''}{quote.change.toFixed(2)} ({isPositive ? '+' : ''}{quote.changePercent.toFixed(2)}%)
               </div>
             </div>
 
             {/* Day High / Low Bar */}
             <div className="space-y-1.5 py-3 border-y border-slate-800/80 my-3 text-xs font-mono">
-              <div className="flex justify-between text-slate-400">
+              <div className="flex justify-between text-slate-400 text-[11px] sm:text-xs">
                 <span>DAY LOW: <strong className="text-slate-200">₹{quote.dayLow.toLocaleString('en-IN')}</strong></span>
                 <span>DAY HIGH: <strong className="text-slate-200">₹{quote.dayHigh.toLocaleString('en-IN')}</strong></span>
               </div>
@@ -203,31 +245,31 @@ export const NiftyDashboard: React.FC<NiftyDashboardProps> = ({
           </div>
 
           {/* Core Indicator Summary Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 text-xs font-mono">
-            <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
-              <span className="text-slate-500 block">VWAP</span>
-              <span className="text-slate-200 font-semibold tabular-nums text-sm">₹{indicators.vwap.value.toLocaleString('en-IN')}</span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 pt-3 text-xs font-mono">
+            <div className="bg-slate-950/60 p-2 sm:p-2.5 rounded-lg border border-slate-800/80">
+              <span className="text-slate-500 block text-[10px] sm:text-xs">VWAP</span>
+              <span className="text-slate-200 font-semibold tabular-nums text-xs sm:text-sm">₹{indicators.vwap.value.toLocaleString('en-IN')}</span>
               <span className={`text-[10px] block mt-0.5 ${indicators.vwap.relation === 'ABOVE' ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {indicators.vwap.relation} VWAP
               </span>
             </div>
-            <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
-              <span className="text-slate-500 block">INDIA VIX</span>
-              <span className="text-slate-200 font-semibold tabular-nums text-sm">{vix.value.toFixed(2)}</span>
+            <div className="bg-slate-950/60 p-2 sm:p-2.5 rounded-lg border border-slate-800/80">
+              <span className="text-slate-500 block text-[10px] sm:text-xs">INDIA VIX</span>
+              <span className="text-slate-200 font-semibold tabular-nums text-xs sm:text-sm">{vix.value.toFixed(2)}</span>
               <span className={`text-[10px] block mt-0.5 ${vix.change < 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {vix.change > 0 ? '+' : ''}{vix.changePercent.toFixed(1)}% ({vix.trend})
               </span>
             </div>
-            <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
-              <span className="text-slate-500 block">PCR (OI)</span>
-              <span className="text-slate-200 font-semibold tabular-nums text-sm">{optionChain.oiPcr}</span>
+            <div className="bg-slate-950/60 p-2 sm:p-2.5 rounded-lg border border-slate-800/80">
+              <span className="text-slate-500 block text-[10px] sm:text-xs">PCR (OI)</span>
+              <span className="text-slate-200 font-semibold tabular-nums text-xs sm:text-sm">{optionChain.oiPcr}</span>
               <span className={`text-[10px] block mt-0.5 ${optionChain.pcrTrend === 'BULLISH' ? 'text-emerald-400' : 'text-slate-400'}`}>
                 {optionChain.pcrTrend}
               </span>
             </div>
-            <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
-              <span className="text-slate-500 block">TREND</span>
-              <span className={`font-semibold text-sm ${signal.trend === 'BULLISH' ? 'text-emerald-400' : signal.trend === 'BEARISH' ? 'text-rose-400' : 'text-slate-300'}`}>
+            <div className="bg-slate-950/60 p-2 sm:p-2.5 rounded-lg border border-slate-800/80">
+              <span className="text-slate-500 block text-[10px] sm:text-xs">TREND</span>
+              <span className={`font-semibold text-xs sm:text-sm ${signal.trend === 'BULLISH' ? 'text-emerald-400' : signal.trend === 'BEARISH' ? 'text-rose-400' : 'text-slate-300'}`}>
                 {signal.trend}
               </span>
               <span className="text-[10px] text-slate-400 block mt-0.5">
@@ -238,78 +280,76 @@ export const NiftyDashboard: React.FC<NiftyDashboardProps> = ({
         </div>
 
         {/* Right: Dynamic Signal & Strategy Execution Box */}
-        <div className={`lg:col-span-6 border rounded-xl p-6 flex flex-col justify-between shadow-sm relative overflow-hidden ${signalStyle.bg}`}>
+        <div className={`lg:col-span-6 border rounded-xl p-4 sm:p-6 flex flex-col justify-between shadow-sm relative overflow-hidden ${signalStyle.bg}`}>
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 <span className={`w-2.5 h-2.5 rounded-full ${signalStyle.dot} animate-pulse`} />
-                <span className="text-xs font-mono font-bold tracking-wider uppercase text-slate-300">F&O ALGORITHMIC SIGNAL</span>
-                <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded">
-                  99th% HUMAN IQ ENGINE
+                <span className="text-xs font-mono font-bold tracking-wider uppercase text-slate-300">F&O SIGNAL</span>
+                <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 sm:px-2 py-0.5 rounded">
+                  99th% HUMAN IQ
                 </span>
               </div>
-              <div className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
+              <div className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5">
                 <span>UPDATED: <strong className="text-emerald-400 font-semibold">{signal.timestamp || quote.timestamp}</strong></span>
-                <span>·</span>
-                <span>STATUS: <strong className="text-slate-200">{signal.status}</strong></span>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2 sm:gap-3">
                 {signalStyle.icon}
-                <div className="text-3xl md:text-4xl font-black tracking-tight font-mono">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight font-mono">
                   {signal.signal}
                 </div>
               </div>
 
               {/* Analytical Confidence Score */}
-              <div className="bg-slate-950/80 px-4 py-2 rounded-xl border border-slate-800 text-right">
-                <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Confidence Score</div>
-                <div className="text-2xl font-bold font-mono text-emerald-400 tabular-nums">
+              <div className="bg-slate-950/80 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl border border-slate-800 text-right">
+                <div className="text-[9px] sm:text-[10px] font-mono text-slate-400 uppercase tracking-wider">Confidence</div>
+                <div className="text-xl sm:text-2xl font-bold font-mono text-emerald-400 tabular-nums">
                   {signal.confidence}%
                 </div>
-                <div className="text-[9px] text-slate-400 font-sans">Analytical estimate</div>
+                <div className="text-[9px] text-slate-400 font-sans">Quant Confluence</div>
               </div>
             </div>
 
             {/* Suggested Strategy Summary */}
-            <div className="bg-slate-950/70 border border-slate-800/80 rounded-lg p-3.5 space-y-2.5 text-xs font-mono">
-              <div className="flex items-center justify-between text-slate-300 font-semibold border-b border-slate-800 pb-2">
-                <span>SETUP: {signal.suggestedStrategy.name}</span>
-                <span className="text-emerald-400 font-mono">R:R {signal.suggestedStrategy.rewardRiskRatio}</span>
+            <div className="bg-slate-950/70 border border-slate-800/80 rounded-lg p-3 sm:p-3.5 space-y-2 text-xs font-mono">
+              <div className="flex flex-wrap items-center justify-between gap-1 text-slate-300 font-semibold border-b border-slate-800 pb-2">
+                <span className="text-xs sm:text-sm">SETUP: {signal.suggestedStrategy.name}</span>
+                <span className="text-emerald-400 font-mono text-xs">R:R {signal.suggestedStrategy.rewardRiskRatio}</span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
                 <div>
-                  <span className="text-slate-500 block text-[11px]">ENTRY ZONE</span>
+                  <span className="text-slate-500 block text-[10px]">ENTRY ZONE</span>
                   <span className="text-white font-semibold">₹{signal.entryZone[0]}–{signal.entryZone[1]}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[11px]">STOP LOSS</span>
+                  <span className="text-slate-500 block text-[10px]">STOP LOSS</span>
                   <span className="text-rose-400 font-semibold">₹{signal.stopLoss}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[11px]">TARGET 1</span>
+                  <span className="text-slate-500 block text-[10px]">TARGET 1</span>
                   <span className="text-emerald-400 font-semibold">₹{signal.target1}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[11px]">TARGET 2</span>
+                  <span className="text-slate-500 block text-[10px]">TARGET 2</span>
                   <span className="text-emerald-400 font-semibold">₹{signal.target2}</span>
                 </div>
               </div>
 
-              <div className="text-slate-400 text-[11px] pt-1 leading-relaxed">
-                <strong className="text-slate-300">Contract Strike Rationale:</strong> {signal.suggestedStrategy.selectionRationale}
+              <div className="text-slate-400 text-[10px] sm:text-[11px] pt-1 leading-relaxed">
+                <strong className="text-slate-300">Rationale:</strong> {signal.suggestedStrategy.selectionRationale}
               </div>
             </div>
           </div>
 
           {/* Action CTAs */}
-          <div className="flex flex-wrap items-center gap-3 pt-4 mt-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-3 sm:pt-4 mt-2">
             <button
               onClick={() => onExecutePaperTrade(signal.suggestedStrategy, signal.signal)}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg shadow transition-all cursor-pointer whitespace-nowrap"
+              className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg shadow transition-all cursor-pointer whitespace-nowrap"
             >
               <span>Practice Trade in Simulator</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -380,22 +420,24 @@ export const NiftyDashboard: React.FC<NiftyDashboardProps> = ({
 
         const isCallSignal = signal.signal === 'BUY CALL' || signal.signal === 'SELL PUT';
         const isPutSignal = signal.signal === 'BUY PUT' || signal.signal === 'SELL CALL';
-        const isBullish = isCallSignal || (signal.trend === 'BULLISH' && signal.signal !== 'BUY PUT' && signal.signal !== 'SELL CALL');
-        const isBearish = isPutSignal || (signal.trend === 'BEARISH' && signal.signal !== 'BUY CALL' && signal.signal !== 'SELL PUT');
+        const isNoTrade = signal.signal === 'NO TRADE';
 
-        const recommendedAction = isCallSignal || isBullish
-          ? 'CALL BUY (BUY CE)'
-          : isPutSignal || isBearish
-          ? 'PUT BUY (BUY PE)'
-          : 'WAIT / DO NOT BUY OPTIONS';
+        const isBullish = !isNoTrade && isCallSignal;
+        const isBearish = !isNoTrade && isPutSignal;
 
-        const recommendedContract = isCallSignal || isBullish
+        const recommendedAction = isBullish
+          ? 'CALL BUY'
+          : isBearish
+          ? 'PUT BUY'
+          : 'NO TRADE / WAIT';
+
+        const recommendedContract = isBullish
           ? `NIFTY ${atmStrike} CE`
-          : isPutSignal || isBearish
+          : isBearish
           ? `NIFTY ${atmStrike} PE`
           : `NIFTY ${atmStrike} (WAIT)`;
 
-        const contractPremium = (isCallSignal || isBullish) ? callLtp : (isPutSignal || isBearish) ? putLtp : (callLtp + putLtp) / 2;
+        const contractPremium = isBullish ? callLtp : isBearish ? putLtp : (callLtp + putLtp) / 2;
 
         return (
           <div className="bg-gradient-to-r from-slate-900 via-[#0a0f1d] to-[#0e172a] border border-slate-800 rounded-2xl p-5 md:p-6 shadow-2xl space-y-5 relative overflow-hidden">
@@ -403,8 +445,8 @@ export const NiftyDashboard: React.FC<NiftyDashboardProps> = ({
 
             {/* Header with Mode Toggle */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${
                   isBullish
                     ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400'
                     : isBearish
@@ -413,90 +455,224 @@ export const NiftyDashboard: React.FC<NiftyDashboardProps> = ({
                 }`}>
                   {isBullish ? <TrendingUp className="w-5 h-5" /> : isBearish ? <TrendingDown className="w-5 h-5" /> : <Minus className="w-5 h-5" />}
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base md:text-lg font-extrabold text-white tracking-tight flex items-center gap-2">
-                      <span>SIMPLE CALL BUY / PUT BUY DECISION</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <h2 className="text-sm sm:text-base md:text-lg font-extrabold text-white tracking-tight">
+                      SIMPLE CALL BUY / PUT BUY DECISION
                     </h2>
-                    <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded font-mono font-bold">
+                    <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-1.5 sm:px-2 py-0.5 rounded font-mono font-bold">
                       PLAIN ENGLISH
                     </span>
-                    <span className="bg-amber-500/20 text-amber-300 text-[10px] px-2 py-0.5 rounded font-mono font-bold">
-                      99% HUMAN IQ LAYER
+                    <span className="bg-amber-500/20 text-amber-300 text-[10px] px-1.5 sm:px-2 py-0.5 rounded font-mono font-bold">
+                      99% HUMAN IQ
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 font-sans mt-0.5">
+                  <p className="text-[11px] sm:text-xs text-slate-400 font-sans mt-0.5">
                     Clear, jargon-free trading direction for retail investors & options buyers
                   </p>
                 </div>
               </div>
 
               {/* View Mode Toggle */}
-              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs w-full sm:w-auto">
                 <button
                   onClick={() => setSimpleMode(true)}
-                  className={`px-3 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
+                  className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md font-semibold text-[11px] sm:text-xs transition-all cursor-pointer ${
                     simpleMode
                       ? 'bg-emerald-600 text-white shadow-sm'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  ⭐ Simple Call / Put (Default)
+                  ⭐ Simple View
                 </button>
                 <button
                   onClick={() => setSimpleMode(false)}
-                  className={`px-3 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
+                  className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md font-semibold text-[11px] sm:text-xs transition-all cursor-pointer ${
                     !simpleMode
                       ? 'bg-violet-600 text-white shadow-sm'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  🔬 Advanced Quant Breakdown
+                  🔬 Quant View
                 </button>
               </div>
             </div>
 
             {/* Content: Mode 1 - Simple Call/Put View */}
             {simpleMode ? (
-              <div className="space-y-5">
+              <div className="space-y-4 sm:space-y-5">
                 {/* 1. Large High-Visibility Decision Banner */}
-                <div className={`p-4 md:p-5 rounded-xl border flex flex-wrap items-center justify-between gap-4 ${
+                <div className={`p-3.5 sm:p-5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 ${
                   isBullish
                     ? 'bg-emerald-950/40 border-emerald-500/40'
                     : isBearish
                     ? 'bg-rose-950/40 border-rose-500/40'
                     : 'bg-amber-950/40 border-amber-500/40'
                 }`}>
-                  <div className="space-y-1">
-                    <div className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                  <div className="space-y-1 min-w-0">
+                    <div className="text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-slate-400">
                       YOUR ACTION TODAY FOR NIFTY 50:
                     </div>
-                    <div className={`text-2xl md:text-3xl font-black font-mono tracking-tight flex items-center gap-2 ${
+                    <div className={`text-xl sm:text-2xl md:text-3xl font-black font-mono tracking-tight flex items-center gap-2 ${
                       isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-amber-400'
                     }`}>
-                      <span>{isBullish ? '👉 🟢 CALL BUY (BUY CE)' : isBearish ? '👉 🔴 PUT BUY (BUY PE)' : '👉 🟡 WAIT / DO NOT BUY'}</span>
+                      <span>{isBullish ? '👉 🟢 CALL BUY' : isBearish ? '👉 🔴 PUT BUY' : '👉 🟡 NO TRADE / WAIT'}</span>
                     </div>
-                    <p className="text-xs text-slate-300 font-sans max-w-2xl leading-relaxed">
+                    <p className="text-[11px] sm:text-xs text-slate-300 font-sans max-w-2xl leading-relaxed">
                       {isBullish
-                        ? 'Market is in an UPWARD TREND. Retail investors should look to BUY CALL (CE) options to profit from the upward move.'
+                        ? 'NIFTY 50 moved upward by 20+ points or is in a confirmed upward trend. Retail investors should look to Call Buy to profit from rising prices.'
                         : isBearish
-                        ? 'Market is in a DOWNWARD TREND. Retail investors should look to BUY PUT (PE) options to profit when the market falls.'
-                        : 'Market is range-bound / choppy. Do NOT buy options right now because option buyers lose money to time decay (theta) in sideways markets.'}
+                        ? 'NIFTY 50 dropped by 20+ points or broke downward. Retail investors should look to Put Buy to profit from falling prices.'
+                        : 'NIFTY 50 is fluctuating within a tight 20-point range. Signal: NO TRADE / WAIT. Capital is preserved to avoid chop decay.'}
                     </p>
                   </div>
 
-                  <div className="bg-slate-950/80 px-4 py-3 rounded-xl border border-slate-800 text-right shrink-0">
-                    <span className="text-[10px] text-slate-400 uppercase font-mono block">TODAY'S VERDICT</span>
-                    <span className={`text-lg font-bold font-mono ${
+                  <div className="bg-slate-950/80 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl border border-slate-800 text-left sm:text-right shrink-0 w-full sm:w-auto">
+                    <span className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-mono block">TODAY'S VERDICT</span>
+                    <span className={`text-base sm:text-lg font-bold font-mono ${
                       isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-amber-400'
                     }`}>
                       {recommendedAction}
                     </span>
                     <span className="text-[10px] text-slate-400 block mt-0.5">
-                      Confidence: <strong className="text-white font-mono">{signal.confidence}%</strong>
+                      Confidence: <strong className={`font-mono ${signal.confidence > 0 ? (isBullish ? 'text-emerald-400' : 'text-rose-400') : 'text-amber-400'}`}>{signal.confidence}%</strong>
+                      <span className="text-[9px] text-slate-500 block">
+                        {signal.confidence > 0 ? 'Strict 20-pt rule triggered' : 'Locked (fluctuation < 20 pts)'}
+                      </span>
                     </span>
                   </div>
                 </div>
+
+                {/* 20-Point Dynamic Impulse Rule Tracker */}
+                {signal.pointImpulseTrigger && (
+                  <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 sm:p-4 space-y-3 text-xs font-mono">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="bg-blue-500/20 text-blue-300 font-bold px-2 py-0.5 rounded text-[10px] flex items-center gap-1 border border-blue-500/30">
+                          <Zap className="w-3 h-3 text-blue-400" />
+                          STRICT 20-POINT EXECUTION RULE
+                        </span>
+                        <span className="text-slate-300 font-semibold text-[11px] sm:text-xs">
+                          {signal.pointImpulseTrigger.description}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[11px] flex-wrap">
+                        <span className={`px-2.5 py-1 rounded-md font-bold text-xs ${
+                          signal.pointImpulseTrigger.status === 'CALL_BUY'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 shadow-sm'
+                            : signal.pointImpulseTrigger.status === 'PUT_BUY'
+                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/50 shadow-sm'
+                            : isBullish
+                            ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
+                            : isBearish
+                            ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
+                        }`}>
+                          {signal.pointImpulseTrigger.status === 'CALL_BUY'
+                            ? '🟢 CALL BUY (≥ +20 pts Breakout)'
+                            : signal.pointImpulseTrigger.status === 'PUT_BUY'
+                            ? '🔴 PUT BUY (≤ -20 pts Drop)'
+                            : isBullish
+                            ? '🟢 CALL BUY (Holding Position)'
+                            : isBearish
+                            ? '🔴 PUT BUY (Holding Position)'
+                            : '🟡 NO TRADE / WAIT (< 20 pts)'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Baseline & Triggers 4-Card Ribbon */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                      <div className="bg-slate-900/80 border border-slate-800 p-2 rounded-lg">
+                        <span className="text-slate-400 text-[10px] block">LAST EXECUTION BASELINE</span>
+                        <strong className="text-white text-sm">
+                          ₹{signal.pointImpulseTrigger.baselinePrice ? signal.pointImpulseTrigger.baselinePrice.toFixed(2) : '22,460.00'}
+                        </strong>
+                      </div>
+
+                      <div className="bg-slate-900/80 border border-slate-800 p-2 rounded-lg">
+                        <span className="text-slate-400 text-[10px] block">NET DISPLACEMENT</span>
+                        <strong className={`text-sm ${
+                          signal.pointImpulseTrigger.distanceFromBaseline >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                        }`}>
+                          {signal.pointImpulseTrigger.distanceFromBaseline >= 0 ? '+' : ''}
+                          {signal.pointImpulseTrigger.distanceFromBaseline.toFixed(1)} pts
+                        </strong>
+                        <span className="text-[10px] text-slate-400 ml-1">
+                          (Target: ±20.0 pts)
+                        </span>
+                      </div>
+
+                      <div className="bg-emerald-950/20 border border-emerald-800/40 p-2 rounded-lg">
+                        <span className="text-emerald-400 text-[10px] block font-bold">NEXT CALL BUY TRIGGER</span>
+                        <strong className="text-emerald-300 text-sm">
+                          ₹{signal.pointImpulseTrigger.nextCallBuyTrigger ? signal.pointImpulseTrigger.nextCallBuyTrigger.toFixed(2) : '-'}
+                        </strong>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                          {signal.pointImpulseTrigger.distanceFromBaseline >= 20
+                            ? '✅ Triggered'
+                            : `+${(20 - signal.pointImpulseTrigger.distanceFromBaseline).toFixed(1)} pts away`}
+                        </span>
+                      </div>
+
+                      <div className="bg-rose-950/20 border border-rose-800/40 p-2 rounded-lg">
+                        <span className="text-rose-400 text-[10px] block font-bold">NEXT PUT BUY TRIGGER</span>
+                        <strong className="text-rose-300 text-sm">
+                          ₹{signal.pointImpulseTrigger.nextPutBuyTrigger ? signal.pointImpulseTrigger.nextPutBuyTrigger.toFixed(2) : '-'}
+                        </strong>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                          {signal.pointImpulseTrigger.distanceFromBaseline <= -20
+                            ? '✅ Triggered'
+                            : `-${(20 + signal.pointImpulseTrigger.distanceFromBaseline).toFixed(1)} pts away`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Interactive 20-Point Rule Test Console */}
+                    <div className="bg-slate-900/90 border border-slate-800/80 p-2.5 rounded-lg flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                      <div className="flex items-center gap-1.5 text-slate-300">
+                        <Sparkles className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                        <span className="font-semibold text-slate-200">Interactive 20-Pt Simulation Controls:</span>
+                        <span className="text-slate-400 text-[10px] hidden sm:inline">(Test triggers & fluctuations)</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          onClick={() => handleSimulateMove(20)}
+                          disabled={simulating}
+                          title="Simulate +20 pt rise to trigger Call Buy"
+                          className="px-2.5 py-1 rounded bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold cursor-pointer transition-all disabled:opacity-50"
+                        >
+                          🟢 +20 pts (Call Buy)
+                        </button>
+                        <button
+                          onClick={() => handleSimulateMove(-20)}
+                          disabled={simulating}
+                          title="Simulate -20 pt drop to trigger Put Buy"
+                          className="px-2.5 py-1 rounded bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/40 text-[11px] font-bold cursor-pointer transition-all disabled:opacity-50"
+                        >
+                          🔴 -20 pts (Put Buy)
+                        </button>
+                        <button
+                          onClick={() => handleSimulateMove(5)}
+                          disabled={simulating}
+                          title="Simulate minor 5 pt movement (< 20 pts)"
+                          className="px-2.5 py-1 rounded bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 text-[11px] font-bold cursor-pointer transition-all disabled:opacity-50"
+                        >
+                          🟡 +5 pts (Minor Chop)
+                        </button>
+                        <button
+                          onClick={() => handleResetBaseline(quote.currentPrice)}
+                          disabled={simulating}
+                          title="Reset baseline to current spot price (signal resets to No Trade / Wait)"
+                          className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] cursor-pointer transition-all disabled:opacity-50"
+                        >
+                          🎯 Reset Baseline
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* 2. 4-Box Retail Investor Action Plan */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-mono">
@@ -654,32 +830,32 @@ export const NiftyDashboard: React.FC<NiftyDashboardProps> = ({
                 </div>
 
                 {/* 5. Action Row */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                     <button
                       onClick={() => {
                         if (onOpenChat) {
                           onOpenChat(`Should I ${recommendedAction} right now on NIFTY? What is the best strike, entry, stop loss, and target in simple words?`);
                         }
                       }}
-                      className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 cursor-pointer transition-all flex items-center gap-2 text-xs"
+                      className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 cursor-pointer transition-all flex items-center justify-center gap-2 text-xs w-full sm:w-auto"
                     >
-                      <Bot className="w-4 h-4 text-white" />
-                      <span>💬 Ask AI Investor Advisor About This Trade</span>
+                      <Bot className="w-4 h-4 text-white shrink-0" />
+                      <span>Ask AI Investor Advisor</span>
                     </button>
 
                     <button
                       onClick={() => onExecutePaperTrade(signal.suggestedStrategy, isCallSignal || isBullish ? 'BUY CALL' : (isPutSignal || isBearish ? 'BUY PUT' : 'NO TRADE'))}
-                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-md cursor-pointer transition-all flex items-center gap-1.5 text-xs"
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-md cursor-pointer transition-all flex items-center justify-center gap-1.5 text-xs w-full sm:w-auto"
                     >
-                      <Zap className="w-3.5 h-3.5 text-amber-300" />
+                      <Zap className="w-3.5 h-3.5 text-amber-300 shrink-0" />
                       <span>Practice {recommendedAction} in Simulator</span>
                     </button>
                   </div>
 
                   <button
                     onClick={() => setSimpleMode(false)}
-                    className="text-xs text-slate-400 hover:text-slate-200 underline cursor-pointer"
+                    className="text-xs text-slate-400 hover:text-slate-200 underline cursor-pointer text-center sm:text-right"
                   >
                     Want to see deep quantitative formulas? Click here →
                   </button>
@@ -746,21 +922,21 @@ export const NiftyDashboard: React.FC<NiftyDashboardProps> = ({
                   </div>
 
                   {/* Execution Vector */}
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-                    <div className="flex flex-wrap items-center gap-4">
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2.5 sm:gap-4">
                       <div>
                         <span className="text-slate-400 text-[10px] block">CONTRACT:</span>
-                        <strong className="text-amber-400 text-sm">{signal.humanIqSignal.executionVector.recommendedContract}</strong>
+                        <strong className="text-amber-400 text-xs sm:text-sm">{signal.humanIqSignal.executionVector.recommendedContract}</strong>
                       </div>
-                      <div className="border-l border-slate-800 pl-3">
+                      <div className="sm:border-l sm:border-slate-800 sm:pl-3">
                         <span className="text-slate-400 text-[10px] block">SL:</span>
                         <span className="text-rose-400 font-bold">₹{signal.humanIqSignal.executionVector.stopLoss.toLocaleString('en-IN')}</span>
                       </div>
-                      <div className="border-l border-slate-800 pl-3">
+                      <div className="sm:border-l sm:border-slate-800 sm:pl-3">
                         <span className="text-slate-400 text-[10px] block">TARGET:</span>
                         <span className="text-emerald-400 font-bold">₹{signal.humanIqSignal.executionVector.target1.toLocaleString('en-IN')}</span>
                       </div>
-                      <div className="border-l border-slate-800 pl-3">
+                      <div className="sm:border-l sm:border-slate-800 sm:pl-3">
                         <span className="text-slate-400 text-[10px] block">R:R:</span>
                         <span className="text-sky-300 font-bold">{signal.humanIqSignal.executionVector.riskRewardRatio}</span>
                       </div>
@@ -768,7 +944,7 @@ export const NiftyDashboard: React.FC<NiftyDashboardProps> = ({
 
                     <button
                       onClick={() => onExecutePaperTrade(signal.suggestedStrategy, signal.signal)}
-                      className="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg cursor-pointer transition-all"
+                      className="w-full sm:w-auto px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg cursor-pointer transition-all text-center"
                     >
                       Execute Trade
                     </button>
@@ -858,8 +1034,8 @@ export const NiftyDashboard: React.FC<NiftyDashboardProps> = ({
         </div>
 
         {/* Fibonacci Levels Row */}
-        <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 text-xs font-mono flex flex-wrap items-center justify-between gap-2">
-          <span className="text-slate-400 font-semibold text-[11px]">FIBONACCI INTRADAY:</span>
+        <div className="bg-slate-950 p-2.5 sm:p-3 rounded-lg border border-slate-800/80 text-xs font-mono grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <span className="text-slate-400 font-semibold text-[11px] col-span-2 sm:col-span-3 lg:col-span-6 pb-1 border-b border-slate-800/60 lg:border-none lg:pb-0">FIBONACCI INTRADAY:</span>
           <span className="text-slate-300">23.6%: <strong className="text-white">₹{indicators.fibonacci.level236}</strong></span>
           <span className="text-slate-300">38.2%: <strong className="text-white">₹{indicators.fibonacci.level382}</strong></span>
           <span className="text-slate-300">50.0%: <strong className="text-white">₹{indicators.fibonacci.level500}</strong></span>

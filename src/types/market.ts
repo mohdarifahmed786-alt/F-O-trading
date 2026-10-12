@@ -8,7 +8,7 @@ export type MarketRegime =
   | 'BREAKOUT'
   | 'UNCERTAIN';
 
-export type SignalType = 'BUY CALL' | 'SELL CALL' | 'BUY PUT' | 'SELL PUT' | 'NO TRADE';
+export type SignalType = 'BUY CALL' | 'SELL CALL' | 'BUY PUT' | 'SELL PUT' | 'NO TRADE' | 'MARKET CLOSED';
 
 export type SignalStatus = 'ACTIVE' | 'PENDING_CONFIRMATION' | 'WAIT';
 
@@ -259,6 +259,21 @@ export interface HumanIqSignal {
   };
 }
 
+export interface PointImpulseTrigger {
+  threshold: number; // 20 points
+  baselinePrice: number; // last execution price (e.g. 100)
+  currentPrice: number;
+  distanceFromBaseline: number; // currentPrice - baselinePrice
+  nextCallBuyTrigger: number; // baselinePrice + 20
+  nextPutBuyTrigger: number; // baselinePrice - 20
+  isUpdatedBaseline: boolean;
+  lastExecutionSignal?: 'BUY CALL' | 'BUY PUT' | 'NO TRADE';
+  netMove: number;
+  rangeAmplitude: number;
+  status: 'CALL_BUY' | 'PUT_BUY' | 'WAIT';
+  description: string;
+}
+
 export interface SignalAnalysis {
   signal: SignalType;
   confidence: number; // 0 - 100%
@@ -267,6 +282,7 @@ export interface SignalAnalysis {
   marketRegime: MarketRegime;
   suggestedStrategy: TradeStrategy;
   humanIqSignal?: HumanIqSignal;
+  pointImpulseTrigger?: PointImpulseTrigger;
   entryZone: [number, number];
   stopLoss: number;
   target1: number;

@@ -131,11 +131,11 @@ export const StockNiftyCorrelationSignals: React.FC<Nifty50ConstituentsSignalsPr
   );
 
   return (
-    <div className="bg-gradient-to-r from-slate-900 via-[#0a0f1d] to-[#0e172a] border border-slate-800 rounded-2xl p-5 md:p-6 shadow-2xl space-y-6">
+    <div className="bg-gradient-to-r from-slate-900 via-[#0a0f1d] to-[#0e172a] border border-slate-800 rounded-2xl p-3 sm:p-5 md:p-6 shadow-2xl space-y-4 sm:space-y-6">
       {/* 1. Header: Official NIFTY 50 Constituent Stocks List */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 border-b border-slate-800/80 pb-3 sm:pb-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="bg-emerald-500/20 text-emerald-400 text-[10px] px-2.5 py-0.5 rounded font-mono font-bold tracking-wide flex items-center gap-1">
               <ListOrdered className="w-3 h-3 text-emerald-400" />
               OFFICIAL NSE INDEX BASKET
@@ -144,7 +144,7 @@ export const StockNiftyCorrelationSignals: React.FC<Nifty50ConstituentsSignalsPr
               50 CONSTITUENT STOCKS
             </span>
           </div>
-          <h2 className="text-lg md:text-xl font-extrabold text-white tracking-tight mt-1 flex items-center gap-2">
+          <h2 className="text-base sm:text-lg md:text-xl font-extrabold text-white tracking-tight mt-1 flex items-center gap-2">
             <span>NIFTY 50 Constituent Stocks (Index Components)</span>
           </h2>
           <p className="text-xs text-slate-400 font-sans mt-0.5 max-w-2xl">
@@ -153,11 +153,11 @@ export const StockNiftyCorrelationSignals: React.FC<Nifty50ConstituentsSignalsPr
         </div>
 
         {/* View Mode Toggle + Count */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="bg-slate-950 p-1 rounded-lg border border-slate-800 flex items-center gap-1 text-xs font-mono">
             <button
               onClick={() => setViewMode('TABLE')}
-              className={`px-3 py-1.5 rounded-md font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-md font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                 viewMode === 'TABLE' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -166,7 +166,7 @@ export const StockNiftyCorrelationSignals: React.FC<Nifty50ConstituentsSignalsPr
             </button>
             <button
               onClick={() => setViewMode('CARDS')}
-              className={`px-3 py-1.5 rounded-md font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-md font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                 viewMode === 'CARDS' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -175,9 +175,9 @@ export const StockNiftyCorrelationSignals: React.FC<Nifty50ConstituentsSignalsPr
             </button>
           </div>
 
-          <div className="bg-slate-950/80 border border-slate-800 px-3.5 py-1.5 rounded-xl text-xs font-mono text-right">
+          <div className="bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-mono text-right">
             <span className="text-[10px] text-slate-500 block">UNIVERSE</span>
-            <strong className="text-white text-sm tabular-nums">{stocks.filter(s => s.symbol !== 'NIFTY 50').length} Stocks</strong>
+            <strong className="text-white text-xs sm:text-sm tabular-nums">{stocks.filter(s => s.symbol !== 'NIFTY 50').length} Stocks</strong>
           </div>
         </div>
       </div>
@@ -217,7 +217,7 @@ export const StockNiftyCorrelationSignals: React.FC<Nifty50ConstituentsSignalsPr
           </div>
 
           {/* Search Box & Sort */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             <div className="relative w-full sm:w-60">
               <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
               <input
@@ -233,7 +233,7 @@ export const StockNiftyCorrelationSignals: React.FC<Nifty50ConstituentsSignalsPr
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-slate-950 border border-slate-800 text-xs text-slate-200 py-1.5 px-2.5 rounded-lg font-mono focus:outline-none cursor-pointer"
+              className="w-full sm:w-auto bg-slate-950 border border-slate-800 text-xs text-slate-200 py-1.5 px-2.5 rounded-lg font-mono focus:outline-none cursor-pointer"
             >
               <option value="WEIGHTAGE">Sort: Weightage (High to Low)</option>
               <option value="PRICE_DESC">Sort: Stock Price (High to Low)</option>
@@ -272,7 +272,7 @@ export const StockNiftyCorrelationSignals: React.FC<Nifty50ConstituentsSignalsPr
       {/* 3A. VIEW MODE 1: COMPLETE 50 CONSTITUENTS TABLE */}
       {viewMode === 'TABLE' && (
         <div className="overflow-x-auto border border-slate-800 rounded-xl bg-slate-950/80">
-          <table className="w-full text-left font-mono text-xs divide-y divide-slate-800">
+          <table className="w-full text-left font-mono text-xs divide-y divide-slate-800 min-w-[840px]">
             <thead className="bg-slate-900/90 text-slate-400 text-[11px] font-bold uppercase tracking-wider">
               <tr>
                 <th className="py-3 px-3 w-10 text-center">#</th>

@@ -126,18 +126,28 @@ export default function App() {
   const fetchMarketSummary = useCallback(async (isManual = false) => {
     try {
       if (isManual) setRefreshing(true);
-      const res = await fetch('/api/market-summary');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch('/api/market-summary', { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (!res.ok) throw new Error('DATA CONNECTION LOST: Market server unavailable');
       const data = await res.json();
       setMarketData(data);
       if (data.stocks && Array.isArray(data.stocks)) {
         setStocks(data.stocks);
       }
+      if (data.news && Array.isArray(data.news) && data.news.length > 0) {
+        setNews(data.news);
+      }
+      if (data.globalIndices && Array.isArray(data.globalIndices) && data.globalIndices.length > 0) {
+        setGlobalIndices(data.globalIndices);
+      }
       setConnectionError(null);
       setNextUpdateSeconds(300); // reset 5-minute cycle
     } catch (err: any) {
-      console.error(err);
-      setConnectionError(err.message || 'LIVE DATA UNAVAILABLE');
+      if (!marketDataRef.current) {
+        setConnectionError('LIVE DATA CONNECTING...');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -147,14 +157,21 @@ export default function App() {
   // Fetch news
   const fetchNews = useCallback(async () => {
     try {
-      const res = await fetch('/api/news');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch('/api/news', { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (res.ok) {
         const data = await res.json();
-        if (data.news) setNews(data.news);
-        if (data.globalIndices) setGlobalIndices(data.globalIndices);
+        if (data.news && Array.isArray(data.news) && data.news.length > 0) {
+          setNews(data.news);
+        }
+        if (data.globalIndices && Array.isArray(data.globalIndices) && data.globalIndices.length > 0) {
+          setGlobalIndices(data.globalIndices);
+        }
       }
-    } catch (err) {
-      console.error('Failed to fetch news:', err);
+    } catch {
+      // Gracefully maintain existing news and global indices on transient network issues
     }
   }, []);
 
@@ -513,7 +530,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-slate-200 flex flex-col selection:bg-emerald-500/30 selection:text-emerald-200">
+    <div className="min-h-screen bg-[#0b0f19] text-slate-200 flex flex-col selection:bg-emerald-500/30 selection:text-emerald-200 w-full max-w-full overflow-x-hidden">
       {/* Strict 3-Zone Top Bar Navigation */}
       <Header
         activeTab={activeTab}
@@ -535,10 +552,10 @@ export default function App() {
       />
 
       {/* Main Viewport Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 md:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-2.5 sm:px-4 md:px-8 py-3 sm:py-6 overflow-x-hidden">
         {/* Error Notification if connection drops */}
         {connectionError && (
-          <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/40 rounded-xl flex items-center justify-between text-xs font-mono text-rose-300">
+          <div className="mb-6 p-3 sm:p-4 bg-rose-500/10 border border-rose-500/40 rounded-xl flex flex-wrap items-center justify-between gap-2.5 text-xs font-mono text-rose-300">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{connectionError} — Signals paused to prevent trading on stale quotes.</span>
@@ -581,6 +598,7 @@ export default function App() {
                   setChatInitialPrompt(prompt);
                   setIsChatOpen(true);
                 }}
+                onRefreshMarket={() => fetchMarketSummary(false)}
               />
             )}
 
@@ -635,7 +653,7 @@ export default function App() {
         <>
           {/* Slide-over floating chat window when opened */}
           {isChatOpen && (
-            <div className="fixed bottom-20 right-4 sm:right-6 z-50 w-[500px] max-w-[calc(100vw-2rem)] h-[620px] max-h-[82vh] rounded-2xl shadow-2xl border border-slate-700/80 bg-[#090d16] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
+            <div className="fixed bottom-20 inset-x-2 sm:inset-x-auto sm:right-6 z-50 sm:w-[500px] max-w-[calc(100vw-1rem)] sm:max-w-[500px] h-[620px] max-h-[80vh] rounded-2xl shadow-2xl border border-slate-700/80 bg-[#090d16] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
               <InvestorChatSection
                 quote={marketData.quote}
                 indicators={marketData.indicators}

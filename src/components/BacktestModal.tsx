@@ -31,24 +31,24 @@ export const BacktestModal: React.FC<BacktestModalProps> = ({ isOpen, onClose })
   const { summary, trades } = backtestData;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
       <div className="bg-[#0e1424] border border-slate-700/80 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden font-mono text-xs">
         {/* Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
+        <div className="p-3.5 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
           <div className="flex items-center gap-2">
-            <BarChart2 className="w-5 h-5 text-emerald-400" />
+            <BarChart2 className="w-5 h-5 text-emerald-400 shrink-0" />
             <div>
-              <h2 className="text-base font-bold text-white uppercase tracking-wide">
+              <h2 className="text-sm sm:text-base font-bold text-white uppercase tracking-wide">
                 NIFTY 50 F&O Strategy Backtesting Engine
               </h2>
-              <p className="text-[11px] text-slate-400 font-sans">
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-sans">
                 Walk-forward out-of-sample backtest incorporating real slippage and statutory transaction costs
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -153,8 +153,8 @@ export const BacktestModal: React.FC<BacktestModalProps> = ({ isOpen, onClose })
               <span>Lot Size: 25 Qty</span>
             </div>
 
-            <div className="max-h-60 overflow-y-auto border border-slate-800 rounded-lg">
-              <table className="w-full text-left border-collapse">
+            <div className="max-h-60 overflow-y-auto overflow-x-auto border border-slate-800 rounded-lg">
+              <table className="w-full text-left border-collapse min-w-[550px]">
                 <thead className="sticky top-0 bg-slate-900 text-slate-400 text-[10px] border-b border-slate-800">
                   <tr>
                     <th className="py-2 px-3">#</th>

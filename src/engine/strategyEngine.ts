@@ -400,6 +400,26 @@ export function selectOptimalStrategy(
   iv: number,
   optionChain?: OptionChainSummary
 ): TradeStrategy {
+  if (signal === 'MARKET CLOSED') {
+    return {
+      id: 'market-closed',
+      name: 'Market Closed · No Active Trade',
+      category: 'NEUTRAL',
+      legs: [],
+      entryRange: [0, 0],
+      stopLoss: 0,
+      target1: 0,
+      target2: 0,
+      maxProfit: '₹0 (Market Closed)',
+      maxLoss: '₹0 (Preserve Capital)',
+      breakeven: [0],
+      greeks: { delta: 0, theta: 0, vega: 0, gamma: 0 },
+      rewardRiskRatio: 'N/A',
+      description: 'NSE Market is closed. Buy and Sell signals are inactive. Awaiting 09:15 AM IST opening bell.',
+      selectionRationale: 'Exchange is closed outside 09:15 AM - 03:30 PM IST. Algorithmic signals and strategy orders remain inactive until session opens.',
+    };
+  }
+
   if (signal === 'NO TRADE') {
     return buildStrategy('iron-condor', spotPrice, signal, regime, optionChain);
   }

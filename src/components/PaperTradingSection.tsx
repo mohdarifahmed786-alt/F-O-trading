@@ -182,15 +182,15 @@ export const PaperTradingSection: React.FC<PaperTradingSectionProps> = ({
       </div>
 
       {/* 2. ACTIVE OPEN POSITIONS */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 sm:p-5 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
             <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wide">
               Active Open Positions ({openPositions.length})
             </h3>
             <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded font-semibold ml-1">
-              ⚡ LIVE PREMIUM TICKING
+              ⚡ LIVE PREMIUM
             </span>
           </div>
 
@@ -208,8 +208,75 @@ export const PaperTradingSection: React.FC<PaperTradingSectionProps> = ({
             No active positions. Click on any Call/Put LTP in the Option Chain or click New Practice Order.
           </div>
         ) : (
-          <div className="overflow-x-auto font-mono text-xs">
-            <table className="w-full text-left border-collapse">
+          <>
+            {/* Mobile Cards for Positions (< 768px) */}
+            <div className="block md:hidden space-y-3 font-mono text-xs">
+              {openPositions.map((pos) => {
+                const strike =
+                  pos.strikePrice ||
+                  (pos.legs && pos.legs[0]?.strike) ||
+                  Math.round(pos.underlyingPriceAtEntry / 50) * 50;
+
+                const isNifty = !pos.symbol || pos.symbol === 'NIFTY' || pos.symbol === 'NIFTY 50';
+                const currentSpot = pos.currentSpotPrice || spotPrice;
+                const lotSize = pos.lotSize || (isNifty ? 25 : 50);
+                const totalQty = (pos.quantityLots || 1) * lotSize;
+                const currentLtp = pos.currentNetPrice;
+                const entryLtp = pos.entryNetPrice;
+                const premiumDiff = currentLtp - entryLtp;
+                const isProfit = pos.pnl >= 0;
+
+                return (
+                  <div key={pos.id} className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-2">
+                      <div>
+                        <div className="text-white font-bold text-xs">{pos.strategyName}</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          {pos.quantityLots} Lot ({totalQty} Qty) · Strike: ₹{strike}
+                        </div>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold ${
+                        isProfit ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-rose-400 bg-rose-500/10 border border-rose-500/20'
+                      }`}>
+                        {isProfit ? '+' : ''}₹{pos.pnl.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">ENTRY OPTION LTP</span>
+                        <span className="text-slate-200 font-semibold">₹{entryLtp.toFixed(1)}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">CURRENT OPTION LTP</span>
+                        <span className={`font-semibold ${premiumDiff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          ₹{Number(currentLtp).toFixed(1)} ({premiumDiff >= 0 ? '+' : ''}{premiumDiff.toFixed(1)} pts)
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">SPOT PRICE</span>
+                        <span className="text-slate-300">₹{currentSpot.toLocaleString('en-IN', { maximumFractionDigits: 1 })}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">SL / TARGET</span>
+                        <span className="text-slate-300">SL: <span className="text-rose-400">₹{pos.stopLossPrice}</span> · T: <span className="text-emerald-400">₹{pos.targetPrice}</span></span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => onCloseTrade(pos.id, 'MANUAL_EXIT')}
+                      className="w-full py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold cursor-pointer transition-colors text-center"
+                    >
+                      Square Off Position
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table (>= 768px) */}
+            <div className="hidden md:block overflow-x-auto font-mono text-xs">
+              <table className="w-full text-left border-collapse min-w-[780px]">
               <thead>
                 <tr className="border-b border-slate-800 text-slate-500 text-[11px]">
                   <th className="py-2.5 px-3">CONTRACT & STRIKE</th>
@@ -381,11 +448,12 @@ export const PaperTradingSection: React.FC<PaperTradingSectionProps> = ({
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </>
+      )}
+    </div>
 
       {/* 3. CLOSED POSITIONS HISTORY */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
+      <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 sm:p-5 shadow-sm space-y-4">
         <div className="flex items-center gap-2">
           <History className="w-4 h-4 text-slate-400" />
           <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wide">
@@ -398,46 +466,76 @@ export const PaperTradingSection: React.FC<PaperTradingSectionProps> = ({
             No closed trades recorded in this session.
           </div>
         ) : (
-          <div className="overflow-x-auto font-mono text-xs">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-500 text-[11px]">
-                  <th className="py-2 px-3">STRATEGY</th>
-                  <th className="py-2 px-3">ENTRY / EXIT OPTION LTP</th>
-                  <th className="py-2 px-3">NET POINTS</th>
-                  <th className="py-2 px-3">EXIT REASON</th>
-                  <th className="py-2 px-3 text-right">P&L</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                {closedPositions.map((t) => {
-                  const isWin = t.pnl > 0;
-                  return (
-                    <tr key={t.id} className="hover:bg-slate-800/30">
-                      <td className="py-2.5 px-3">
+          <>
+            {/* Mobile Cards for Closed Trades (< 768px) */}
+            <div className="block md:hidden space-y-2.5 font-mono text-xs">
+              {closedPositions.map((t) => {
+                const isWin = t.pnl > 0;
+                return (
+                  <div key={t.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
                         <div className="font-semibold text-white">{t.strategyName}</div>
                         <div className="text-[10px] text-slate-500">{t.signalType} · {t.quantityLots} Lots</div>
-                      </td>
-                      <td className="py-2.5 px-3 tabular-nums">
-                        ₹{t.entryNetPrice} → ₹{t.exitNetPrice || t.currentNetPrice}
-                      </td>
-                      <td className="py-2.5 px-3 tabular-nums font-semibold">
-                        {isWin ? '+' : ''}{((t.exitNetPrice || t.currentNetPrice) - t.entryNetPrice).toFixed(1)} pts
-                      </td>
-                      <td className="py-2.5 px-3 text-[11px]">
-                        <span className={isWin ? 'text-emerald-400' : 'text-rose-400'}>
-                          {t.exitReason?.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className={`py-2.5 px-3 text-right font-bold tabular-nums ${isWin ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      </div>
+                      <span className={`font-bold tabular-nums text-sm ${isWin ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {isWin ? '+' : ''}₹{t.pnl.toLocaleString('en-IN')}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-800/80 pt-1.5">
+                      <span>₹{t.entryNetPrice} → ₹{t.exitNetPrice || t.currentNetPrice} ({isWin ? '+' : ''}{((t.exitNetPrice || t.currentNetPrice) - t.entryNetPrice).toFixed(1)} pts)</span>
+                      <span className={isWin ? 'text-emerald-400' : 'text-rose-400'}>
+                        {t.exitReason?.replace('_', ' ')}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table for Closed Trades (>= 768px) */}
+            <div className="hidden md:block overflow-x-auto font-mono text-xs">
+              <table className="w-full text-left border-collapse min-w-[500px]">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-500 text-[11px]">
+                    <th className="py-2 px-3">STRATEGY</th>
+                    <th className="py-2 px-3">ENTRY / EXIT OPTION LTP</th>
+                    <th className="py-2 px-3">NET POINTS</th>
+                    <th className="py-2 px-3">EXIT REASON</th>
+                    <th className="py-2 px-3 text-right">P&L</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                  {closedPositions.map((t) => {
+                    const isWin = t.pnl > 0;
+                    return (
+                      <tr key={t.id} className="hover:bg-slate-800/30">
+                        <td className="py-2.5 px-3">
+                          <div className="font-semibold text-white">{t.strategyName}</div>
+                          <div className="text-[10px] text-slate-500">{t.signalType} · {t.quantityLots} Lots</div>
+                        </td>
+                        <td className="py-2.5 px-3 tabular-nums">
+                          ₹{t.entryNetPrice} → ₹{t.exitNetPrice || t.currentNetPrice}
+                        </td>
+                        <td className="py-2.5 px-3 tabular-nums font-semibold">
+                          {isWin ? '+' : ''}{((t.exitNetPrice || t.currentNetPrice) - t.entryNetPrice).toFixed(1)} pts
+                        </td>
+                        <td className="py-2.5 px-3 text-[11px]">
+                          <span className={isWin ? 'text-emerald-400' : 'text-rose-400'}>
+                            {t.exitReason?.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className={`py-2.5 px-3 text-right font-bold tabular-nums ${isWin ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {isWin ? '+' : ''}₹{t.pnl.toLocaleString('en-IN')}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

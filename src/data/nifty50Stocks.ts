@@ -87,6 +87,14 @@ export const NIFTY_50_BASE_CONSTITUENTS: BaseStockConfig[] = [
   { symbol: 'SBILIFE', name: 'SBI Life Insurance Co.', sector: 'Financial Services', weightage: 0.60, basePrice: 1765.00, lotSize: 750, strikeStep: 10, trendBias: 0.10, atmIv: 16.5 },
 ];
 
+function getSymbolHash(sym: string): number {
+  let hash = 0;
+  for (let i = 0; i < sym.length; i++) {
+    hash = (hash * 31 + sym.charCodeAt(i)) & 0xffffff;
+  }
+  return (hash % 1000) / 1000;
+}
+
 /**
  * Calculates stock-specific technicals and F&O signal independently
  */
@@ -103,6 +111,8 @@ export function generateStockAnalysis(
     open: number;
   }
 ): StockConstituent {
+  const symSeed = getSymbolHash(cfg.symbol);
+
   // If live data is available, prioritize real exchange figures
   let currentPrice = liveOverride ? liveOverride.price : cfg.basePrice;
   let previousClose = liveOverride ? liveOverride.previousClose : cfg.basePrice;
@@ -113,30 +123,34 @@ export function generateStockAnalysis(
   let open = liveOverride ? liveOverride.open : previousClose;
 
   if (!liveOverride) {
-    const deltaPct = cfg.trendBias * 1.2 + (Math.random() - 0.48) * 0.8;
+    const deltaPct = cfg.trendBias * 1.2 + (symSeed - 0.48) * 0.8;
     currentPrice = Number((cfg.basePrice * (1 + deltaPct / 100)).toFixed(2));
     previousClose = cfg.basePrice;
     change = Number((currentPrice - previousClose).toFixed(2));
     changePercent = Number(((change / previousClose) * 100).toFixed(2));
-    dayHigh = Number((Math.max(currentPrice, previousClose) + Math.random() * (currentPrice * 0.008)).toFixed(2));
-    dayLow = Number((Math.min(currentPrice, previousClose) - Math.random() * (currentPrice * 0.008)).toFixed(2));
-    open = Number((previousClose + (Math.random() - 0.5) * (currentPrice * 0.004)).toFixed(2));
+    dayHigh = Number((Math.max(currentPrice, previousClose) + symSeed * (currentPrice * 0.008)).toFixed(2));
+    dayLow = Number((Math.min(currentPrice, previousClose) - (1 - symSeed) * (currentPrice * 0.008)).toFixed(2));
+    open = Number((previousClose + (symSeed - 0.5) * (currentPrice * 0.004)).toFixed(2));
   }
 
-  const volume = Math.floor(850000 + Math.random() * 2500000);
-  const vwap = Number((currentPrice - (cfg.trendBias * currentPrice * 0.003)).toFixed(2));
+  const effectiveBias = liveOverride
+    ? (liveOverride.changePercent >= 0.05 ? 0.6 : liveOverride.changePercent <= -0.05 ? -0.6 : 0)
+    : cfg.trendBias;
+
+  const volume = Math.floor(850000 + symSeed * 2500000);
+  const vwap = Number((currentPrice - (effectiveBias * currentPrice * 0.003)).toFixed(2));
 
   // Indicators
-  const rsi14 = Number((50 + cfg.trendBias * 18 + (Math.random() - 0.5) * 6).toFixed(1));
-  const adx14 = Number((22 + Math.abs(cfg.trendBias) * 12).toFixed(1));
-  const pcr = Number((1.0 + cfg.trendBias * 0.35 + (Math.random() - 0.5) * 0.1).toFixed(2));
+  const rsi14 = Number((50 + effectiveBias * 18 + (symSeed - 0.5) * 6).toFixed(1));
+  const adx14 = Number((22 + Math.abs(effectiveBias) * 12).toFixed(1));
+  const pcr = Number((1.0 + effectiveBias * 0.35 + (symSeed - 0.5) * 0.1).toFixed(2));
 
   // Determine Trend
   let trend: MarketTrend = 'SIDEWAYS';
-  if (cfg.trendBias >= 0.3 && (currentPrice >= vwap || rsi14 >= 50)) {
-    trend = 'BULLISH';
-  } else if (cfg.trendBias <= -0.3 && (currentPrice <= vwap || rsi14 <= 50)) {
+  if (change < 0 || (effectiveBias <= -0.2 && (currentPrice <= vwap || rsi14 <= 50))) {
     trend = 'BEARISH';
+  } else if (change > 0 || (effectiveBias >= 0.2 && (currentPrice >= vwap || rsi14 >= 50))) {
+    trend = 'BULLISH';
   }
 
   // Market Regime
